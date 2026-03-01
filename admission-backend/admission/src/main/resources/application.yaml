@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: admission
+  datasource:
+    url: jdbc:mysql://localhost:3306/grade1_admission
+    username: root
+    password: Sathana23@June03
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      # Use 'update' to let Hibernate modify the table if you add fields to your Java class
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+
+server:
+  port: 8081
