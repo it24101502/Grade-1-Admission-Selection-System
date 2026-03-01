@@ -28,6 +28,29 @@ git commit -m "TASK-42: Implement login API endpoint"
 - JavaScript
 - Git
 - GitHub
-The Grade 1 admission process is mostly manual and time-consuming. Schools conduct interviews and assign marks based on criteria like distance, siblings, and special conditions. This can cause delays and errors. The proposed system automates data collection, mark calculation, and student ranking, ensuring efficiency, fairness, and transparency.
 
-#This project is conducted as part of the Y2S2 Computer Science degree program for the Software Engineering (SE2072) and Human-Computer Interaction (SE2082) modules.
+## Project structure
+```
+grade1-admission/
+├── backend/                  ← Spring Boot (Java)
+│   ├── pom.xml
+│   └── src/main/java/lk/school/admission/
+│       ├── Grade1AdmissionApplication.java
+│       ├── config/
+│       │   ├── SecurityConfig.java
+│       │   └── DataSeeder.java
+│       ├── entity/
+│       │   ├── Applicant.java
+│       │   ├── Application.java
+│       │   └── Judge.java
+│       ├── repository/
+│       ├── service/
+│       └── controller/
+└── frontend/                 ← React
+    ├── package.json
+    └── src/
+        ├── index.css
+        ├── App.jsx
+        ├── pages/
+        └── components/
+```
