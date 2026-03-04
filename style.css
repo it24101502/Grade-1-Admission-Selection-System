@@ -1,0 +1,20 @@
+input[type="text"],
+input[type="number"],
+input[type="date"] {
+    border: none;
+    border-bottom: 2px dotted black;
+    outline: none;
+    background: transparent;
+}
+
+form {
+    border: 2px solid black;
+    padding: 20px;
+    width: 90%;
+    margin: 40px auto;   /* centers the form */
+}
+
+h2 {
+    text-align: center;
+    margin-bottom: 30px;
+}

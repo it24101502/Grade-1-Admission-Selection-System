@@ -1,0 +1,108 @@
+</br>
+
+<head>
+<meta charset="UTF-8">
+<title>පළමුවන ශ්‍රේණියට ළමයින් ඇතුළත් කිරීම</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>     
+
+<h2>පළමුවන ශ්‍රේණියට ළමයින් ඇතුළත් කිරීමේ අයදුම්පත</h2>
+
+<form method="post" action="SubmitApplicationServlet" enctype="multipart/form-data">
+
+<p>
+⚠ කරුණාකර සියලු තොරතුරු නිවැරදිව පුරවන්න.</br>
+⚠ අසත්‍ය තොරතුරු ලබා දීමෙන් අයදුම්පත අවලංගු වේ.</br>
+</p>
+
+<h3>01. අයදුම් කරන කාණ්ඩය</h3>
+
+<select name="category" required>
+  <option value="">ඉල්ලුම් කරන ගණය (ගණ කිහිපයකට අයත් නම් යවන යවන ම ඉල්ලුම් කළ යුතු ය.)</option>
+  <option value="nearby">පාසලට ආසන්න වසති (50%)</option>
+  <option value="old_pupil">පූර්ව ශිෂ්‍ය මව්පියන් (25%)</option>
+  <option value="sibling">පාසලේ දැනට ඉගෙනුම ලබන සහෝදරියක් ඇති (14%)</option>
+  <option value="education_staff">අධ්‍යාපන සේවකයින් (06%)</option>
+  <option value="transfer">රාජ්‍ය සේවා ස්ථාන මාරු (04%)</option>
+  <option value="foreign_return">විදේශ ගතව සිට පැමිණි (01%)</option>
+</select>
+
+<h3>02. දරුවාගේ විස්තර</h3>
+
+2.1 සම්පූර්ණ නම (සිංහලෙන්):
+<input type="text" class="dotted-input" name="studentNameSinhala" required> </br>
+
+2.2 මුලකුරු සමඟ නම(සිංහලෙන්) (උදා - බී.එස්.එස් පීරිස්) :
+<input type="text" name="studentNameInitialsSinhala" required> </br>
+
+2.3 සම්පූර්ණ නම (ඉංග්‍රීසියෙන්):
+<input type="text" name="studentNameEnglish" required> </br>
+
+2.4 මුලකුරු සමඟ නම(ඉංග්‍රීසි‍යෙන්) (උදා - B.S.S. PEIRIS) :
+<input type="text" name="studentNameInitialsEnglish" required> </br>
+
+2.5 ස්ත්‍රී / පුරුෂ භාවය:
+<select name="gender">
+  <option>ස්ත්‍රී</option>
+  <option>පුරුෂ</option>
+</select>
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.6 ආගම:
+<input type="text" name="religion"> </br>
+
+2.7 උගන්වන මාධ්‍ය:
+<select name="medium">
+  <option>සිංහල</option>
+  <option>දෙමළ</option>
+  <option>ඉංග්‍රීසි</option>
+</select>
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.8 උපන් දිනය:
+<input type="date" name="dob" required> </br>
+
+2.9 2026 ජනවාරි මස 31 දිනට වයස: - අවුරුදු : 
+<input type="number" name="ageYears" required>
+මාස :
+<input type="number" name="ageMonths" required>
+දින :
+<input type="number" name="ageDays" required> </br>
+
+<h3>03. අයදුම්කරු පිළිබඳ විස්ත්ර :- (මව/පියා/නීත්‍යානුකුල භාරකරු)</h3>
+
+3.1 මවගේ සම්පූර්ණ නම:
+<input type="text" name="motherName"> </br>
+
+3.2 මවගේ ජාතික හැඳුනුම්පත් අංකය:
+<input type="text" name="motherNIC"> </br>
+
+3.3 පියාගේ සම්පූර්ණ නම:
+<input type="text" name="fatherName"> </br>
+
+3.4 පියාගේ ජාතික හැඳුනුම්පත් අංකය:
+<input type="text" name="fatherNIC"> </br>
+
+3.5 ස්ථිර ලිපිනය:
+<textarea name="address"></textarea> </br>
+
+3.6 නගරය:
+<textarea name="city"></textarea> </br>
+
+3.7 දිස්ත්‍රික්කය:
+<input type="text" name="district"> </br>
+
+3.8 ග්‍රාම නිලධාරී කොට්ඨාශය:
+<input type="text" name="gnDivision"> </br>
+
+3.9 දුරකථන අංකය:
+<input type="text" name="phone"> </br>
+
+</br>
+</br>
+
+<input type="checkbox" required>
+මම සපයා ඇති සියලුම තොරතුරු සත්‍ය බව මෙයින් ප්‍රකාශ කරමි.
+
+<button type="submit">අයදුම්පත ඉදිරිපත් කරන්න</button>
+
