@@ -1,0 +1,98 @@
+// ================================================================
+//  FILE: src/main/java/lk/school/admission/controller/AdminController.java
+//  Base path: /api/admin/  (ADMIN role only)
+// ================================================================
+package lk.school.admission.controller;
+
+import lk.school.admission.service.AdminService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/admin")
+@PreAuthorize("hasRole('ADMIN')")
+@CrossOrigin
+public class AdminController {
+
+    @Autowired private AdminService adminService;
+
+    // GET /api/admin/stats
+    @GetMapping("/stats")
+    public ResponseEntity<?> getStats() {
+        try {
+            return ResponseEntity.ok(adminService.getDashboardStats());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // GET /api/admin/applications?category=CO&status=SCORED
+    @GetMapping("/applications")
+    public ResponseEntity<?> getApplications(
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String status) {
+        try {
+            return ResponseEntity.ok(adminService.getAllApplications(category, status));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // GET /api/admin/ranked/{category}
+    @GetMapping("/ranked/{category}")
+    public ResponseEntity<?> getRanked(@PathVariable String category) {
+        try {
+            return ResponseEntity.ok(adminService.getRankedByCategory(category));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // GET /api/admin/flagged
+    @GetMapping("/flagged")
+    public ResponseEntity<?> getFlagged() {
+        try {
+            return ResponseEntity.ok(adminService.getFlaggedApplications());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // GET /api/admin/judges
+    @GetMapping("/judges")
+    public ResponseEntity<?> getJudgeProgress() {
+        try {
+            return ResponseEntity.ok(adminService.getJudgeProgress());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // POST /api/admin/publish-results
+    // Body: { "CO": 10, "SIS": 5, "OG": 3, "ED": 4, "TR": 2, "AB": 1 }
+    @PostMapping("/publish-results")
+    public ResponseEntity<?> publishResults(@RequestBody Map<String, Integer> selections) {
+        try {
+            return ResponseEntity.ok(adminService.publishResults(selections));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // PUT /api/admin/applications/{id}/status
+    // Body: { "status": "SELECTED" }
+    @PutMapping("/applications/{id}/status")
+    public ResponseEntity<?> overrideStatus(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+        try {
+            return ResponseEntity.ok(adminService.overrideStatus(id, body.get("status")));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+}
