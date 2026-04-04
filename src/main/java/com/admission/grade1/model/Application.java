@@ -21,7 +21,13 @@ public class Application {
     private String motherFullName;
     private String fatherFullName;
 
+    @Enumerated(EnumType.STRING)
+    private Category category;
+
     // GETTERS & SETTERS
+
+    public Category getCategory() { return category; }
+    public void setCategory(Category category) { this.category = category; }
 
     public Long getId() { return id; }
 
