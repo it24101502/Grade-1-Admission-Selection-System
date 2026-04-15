@@ -1,104 +1,365 @@
 // ================================================================
 //  FILE: src/main/java/lk/school/admission/service/DocumentControllerService.java
-//  UPDATED:
-//    - ApplicantRepository → ParentRepository
-//    - Applicant entity → Parent entity
-//    - Role.APPLICANT → Role.PARENT
-//    - All "applicant" variable names → "parent"
+//  UPDATED: Added category slot management for parents.
+//  DC can now assign which categories a parent is allowed to apply for.
 // ================================================================
 package lk.school.admission.service;
 
-import lk.school.admission.entity.*;
-import lk.school.admission.repository.ApplicationRepository;
-import lk.school.admission.repository.ParentRepository;
+import lk.school.admission.entity.apps.ParentAccount;
+import lk.school.admission.entity.system.*;
+import lk.school.admission.repository.apps.ParentAccountRepository;
+import lk.school.admission.repository.apps.ApplicationRepository;
+import lk.school.admission.repository.system.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class DocumentControllerService {
 
-    @Autowired private ParentRepository      parentRepo;         // UPDATED
-    @Autowired private ApplicationRepository applicationRepo;
-    @Autowired private PasswordEncoder       passwordEncoder;
+    @Autowired private ParentAccountRepository  parentRepo;
+    @Autowired private ApplicationRepository    appRepo;
+    @Autowired private MarkingSchemeRepository  schemeRepo;
+    @Autowired private MarkingCriterionRepository criterionRepo;
+    @Autowired private JudgeRepository          judgeRepo;
+    @Autowired private PasswordEncoder          passwordEncoder;
 
-    // ── STEP 2: Create Parent Login ────────────────────────────────
-    // Called by Document Controller when a physical form is received
-    public Map<String, Object> createParentLogin(             // UPDATED method name
-            String fullName,
-            String email,
-            String nic) {
+    // ════════════════════════════════════════════════════════════
+    //  PARENT ACCOUNT MANAGEMENT
+    // ════════════════════════════════════════════════════════════
 
-        // Validation: Check for duplicates
-        if (parentRepo.existsByEmail(email)) {
-            throw new RuntimeException("An account with this email already exists: " + email);
-        }
-        if (parentRepo.existsByNic(nic)) {
-            throw new RuntimeException("An account with this NIC already exists: " + nic);
-        }
+    /**
+     * DC creates a parent account.
+     * Fields: phone (username), NIC (initial password), childName, category.
+     */
+    @Transactional("appsTransactionManager")
+    public Map<String, Object> createParentAccount(String phone, String nic,
+                                                    String childName, String category) {
+        phone     = phone.trim();
+        nic       = nic.trim();
+        childName = childName.trim();
+        category  = category.trim().toUpperCase();
 
-        // Create the parent account
-        // Password = NIC number (parent must change after first login)
-        Parent parent = Parent.builder()                          // UPDATED
-                .fullName(fullName)
-                .email(email)
-                .nic(nic)
-                .passwordHash(passwordEncoder.encode(nic))        // NIC = initial password
-                .role(Role.PARENT)                                // UPDATED
-                .isActive(true)
-                .hasChangedPassword(false)
-                .build();
+        // Validate category
+        List<String> validCats = List.of("CO","SIS","OG","TR","EDU","AB");
+        if (!validCats.contains(category))
+            throw new RuntimeException("Invalid category: " + category +
+                ". Must be one of: " + String.join(", ", validCats));
 
-        Parent saved = parentRepo.save(parent);
+        if (parentRepo.existsByPhone(phone))
+            throw new RuntimeException("An account with phone number " + phone + " already exists");
+        if (parentRepo.existsByNic(nic))
+            throw new RuntimeException("An account with NIC " + nic + " already exists");
 
-        Map<String, Object> result = new HashMap<>();
-        result.put("id",       saved.getId());
-        result.put("fullName", saved.getFullName());
-        result.put("email",    saved.getEmail());
-        result.put("nic",      saved.getNic());
-        result.put("message",
-            "Login created. Send the parent this link: " +
-            "http://localhost:3000/login?role=parent");           // UPDATED
+        ParentAccount parent = ParentAccount.builder()
+            .phone(phone)
+            .nic(nic)
+            .passwordHash(passwordEncoder.encode(nic))   // initial password = NIC
+            .childName(childName)
+            .category(category)
+            .active(true)
+            .hasChangedPassword(false)
+            .build();
+
+        ParentAccount saved = parentRepo.save(parent);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("id",          saved.getId());
+        result.put("phone",       saved.getPhone());
+        result.put("nic",         saved.getNic());
+        result.put("childName",   saved.getChildName());
+        result.put("category",    saved.getCategory());
+        result.put("username",    saved.getPhone());       // remind DC: username = phone
+        result.put("password",    saved.getNic());         // remind DC: password = NIC
+        result.put("message",     "Parent account created. Username: " + phone + ", Password: " + nic);
         return result;
     }
 
-    // ── Get all parents created by this DC ────────────────────────
-    public List<Map<String, Object>> getAllParents() {            // UPDATED method name
+    /**
+     * List all parent accounts with their submission status.
+     */
+    @Transactional(value = "appsTransactionManager", readOnly = true)
+    public List<Map<String, Object>> getAllParents() {
         return parentRepo.findAll().stream().map(p -> {
-            Map<String, Object> m = new HashMap<>();
-            m.put("id",        p.getId());
-            m.put("fullName",  p.getFullName());
-            m.put("email",     p.getEmail());
-            m.put("nic",       p.getNic());
-            m.put("createdAt", p.getCreatedAt().toString());
-            m.put("isActive",  p.isActive());
-            // Check if the parent has filled the form
-            var apps = applicationRepo.findByParentId(p.getId()); // UPDATED
-            m.put("formFilled",  !apps.isEmpty());
-            m.put("formStatus",  apps.isEmpty()
-                    ? "NOT_STARTED" : apps.get(0).getStatus().name());
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id",                p.getId());
+            m.put("phone",             p.getPhone());
+            m.put("nic",               p.getNic());
+            m.put("childName",         p.getChildName());
+            m.put("category",          p.getCategory());
+            m.put("active",            p.isActive());
+            m.put("hasChangedPassword",p.isHasChangedPassword());
+            m.put("applicationId",     p.getApplicationId());
+            m.put("hasSubmitted",      p.getApplicationId() != null);
+            m.put("createdAt",         p.getCreatedAt().toString());
             return m;
-        }).toList();
+        }).collect(Collectors.toList());
     }
 
-    // ── Reset password back to NIC ────────────────────────────────
-    public void resetParentPassword(Long parentId) {              // UPDATED method name
-        Parent parent = parentRepo.findById(parentId)
-                .orElseThrow(() -> new RuntimeException("Parent not found"));
-        parent.setPasswordHash(passwordEncoder.encode(parent.getNic()));
-        parent.setHasChangedPassword(false);
-        parentRepo.save(parent);
+    /** Reset a parent's password back to their NIC */
+    @Transactional("appsTransactionManager")
+    public void resetParentPassword(Long parentId) {
+        ParentAccount p = parentRepo.findById(parentId)
+            .orElseThrow(() -> new RuntimeException("Parent not found: " + parentId));
+        p.setPasswordHash(passwordEncoder.encode(p.getNic()));
+        p.setHasChangedPassword(false);
+        parentRepo.save(p);
     }
 
-    // ── Toggle active/inactive ────────────────────────────────────
-    public void toggleParentActive(Long parentId, boolean active) { // UPDATED method name
-        Parent parent = parentRepo.findById(parentId)
-                .orElseThrow(() -> new RuntimeException("Parent not found"));
-        parent.setActive(active);
-        parentRepo.save(parent);
+    /** Activate or deactivate a parent account */
+    @Transactional("appsTransactionManager")
+    public void setParentActive(Long parentId, boolean active) {
+        ParentAccount p = parentRepo.findById(parentId)
+            .orElseThrow(() -> new RuntimeException("Parent not found: " + parentId));
+        p.setActive(active);
+        parentRepo.save(p);
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  MARKING SCHEME MANAGEMENT
+    // ════════════════════════════════════════════════════════════
+
+    /**
+     * Create a new marking scheme for a specific judge category.
+     * Each judge has their OWN scheme — different criteria, different weights.
+     *
+     * If a scheme already exists for that category, the old one is deactivated
+     * and this new one becomes active.
+     *
+     * @param category   e.g. "CO"
+     * @param title      e.g. "CO Category Marking Scheme 2025"
+     * @param criteria   List of criterion definitions from the request body
+     */
+    @Transactional("systemTransactionManager")
+    public Map<String, Object> createMarkingScheme(String category,
+                                                    String title,
+                                                    List<Map<String, Object>> criteria) {
+        ApplicationCategory cat = parseCategory(category);
+
+        // Deactivate any existing active scheme for this category
+        schemeRepo.findByCategoryAndActiveTrue(cat).ifPresent(existing -> {
+            existing.setActive(false);
+            schemeRepo.save(existing);
+        });
+
+        // Build the new scheme
+        MarkingScheme scheme = MarkingScheme.builder()
+            .category(cat)
+            .title(title.trim())
+            .active(true)
+            .build();
+
+        // Build criteria
+        List<MarkingCriterion> criterionList = new ArrayList<>();
+        for (int i = 0; i < criteria.size(); i++) {
+            Map<String, Object> c = criteria.get(i);
+            MarkingCriterion mc = buildCriterion(c, i, scheme);
+            criterionList.add(mc);
+        }
+        scheme.getCriteria().addAll(criterionList);
+
+        MarkingScheme saved = schemeRepo.save(scheme);
+        return schemeToMap(saved);
+    }
+
+    /**
+     * Add a single criterion to an existing scheme.
+     */
+    @Transactional("systemTransactionManager")
+    public Map<String, Object> addCriterion(Long schemeId, Map<String, Object> criterionData) {
+        MarkingScheme scheme = schemeRepo.findById(schemeId)
+            .orElseThrow(() -> new RuntimeException("Scheme not found: " + schemeId));
+
+        int nextOrder = scheme.getCriteria().size();
+        MarkingCriterion mc = buildCriterion(criterionData, nextOrder, scheme);
+        scheme.getCriteria().add(mc);
+        schemeRepo.save(scheme);
+
+        return schemeToMap(scheme);
+    }
+
+    /**
+     * Remove a criterion from a scheme.
+     */
+    @Transactional("systemTransactionManager")
+    public void removeCriterion(Long criterionId) {
+        MarkingCriterion mc = criterionRepo.findById(criterionId)
+            .orElseThrow(() -> new RuntimeException("Criterion not found: " + criterionId));
+        MarkingScheme scheme = mc.getScheme();
+        scheme.getCriteria().remove(mc);
+        // Re-order remaining criteria
+        for (int i = 0; i < scheme.getCriteria().size(); i++) {
+            scheme.getCriteria().get(i).setDisplayOrder(i);
+        }
+        schemeRepo.save(scheme);
+    }
+
+    /**
+     * Update scheme title or active status.
+     */
+    @Transactional("systemTransactionManager")
+    public Map<String, Object> updateScheme(Long schemeId, Map<String, Object> updates) {
+        MarkingScheme scheme = schemeRepo.findById(schemeId)
+            .orElseThrow(() -> new RuntimeException("Scheme not found: " + schemeId));
+
+        if (updates.containsKey("title"))
+            scheme.setTitle(updates.get("title").toString().trim());
+
+        if (updates.containsKey("active")) {
+            boolean newActive = Boolean.parseBoolean(updates.get("active").toString());
+            // If activating, deactivate other schemes for this category first
+            if (newActive) {
+                schemeRepo.findByCategoryAndActiveTrue(scheme.getCategory()).ifPresent(other -> {
+                    if (!other.getId().equals(schemeId)) {
+                        other.setActive(false);
+                        schemeRepo.save(other);
+                    }
+                });
+            }
+            scheme.setActive(newActive);
+        }
+
+        return schemeToMap(schemeRepo.save(scheme));
+    }
+
+    /**
+     * Get the active marking scheme for a category (with criteria).
+     */
+    @Transactional(value = "systemTransactionManager", readOnly = true)
+    public Map<String, Object> getActiveScheme(String category) {
+        ApplicationCategory cat = parseCategory(category);
+        MarkingScheme scheme = schemeRepo
+            .findActiveSchemeByCategoryWithCriteria(cat)
+            .orElseThrow(() -> new RuntimeException(
+                "No active marking scheme found for category: " + category));
+        return schemeToMap(scheme);
+    }
+
+    /**
+     * Get all schemes (all categories, active and historical).
+     */
+    @Transactional(value = "systemTransactionManager", readOnly = true)
+    public List<Map<String, Object>> getAllSchemes() {
+        return schemeRepo.findAll().stream()
+            .map(this::schemeToMap)
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Get all schemes grouped by category, showing active scheme per category.
+     */
+    @Transactional(value = "systemTransactionManager", readOnly = true)
+    public Map<String, Object> getSchemesSummary() {
+        Map<String, Object> summary = new LinkedHashMap<>();
+        for (ApplicationCategory cat : ApplicationCategory.values()) {
+            Optional<MarkingScheme> active = schemeRepo.findByCategoryAndActiveTrue(cat);
+            Map<String, Object> catInfo = new LinkedHashMap<>();
+            catInfo.put("hasActiveScheme", active.isPresent());
+            if (active.isPresent()) {
+                MarkingScheme s = active.get();
+                catInfo.put("schemeId",      s.getId());
+                catInfo.put("title",         s.getTitle());
+                catInfo.put("criteriaCount", s.getCriteria().size());
+                catInfo.put("totalPossible", s.getTotalPossibleMarks());
+                catInfo.put("createdAt",     s.getCreatedAt().toString());
+            }
+            summary.put(cat.name(), catInfo);
+        }
+        return summary;
+    }
+
+    /**
+     * Get all historical versions of schemes for a specific category.
+     */
+    @Transactional(value = "systemTransactionManager", readOnly = true)
+    public List<Map<String, Object>> getSchemeHistory(String category) {
+        ApplicationCategory cat = parseCategory(category);
+        return schemeRepo.findByCategoryOrderByCreatedAtDesc(cat)
+            .stream().map(this::schemeToMap).collect(Collectors.toList());
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  PRIVATE HELPERS
+    // ════════════════════════════════════════════════════════════
+
+    private MarkingCriterion buildCriterion(Map<String, Object> data,
+                                             int order,
+                                             MarkingScheme scheme) {
+        String titleVal = Objects.requireNonNull(data.get("title"), "Criterion title is required")
+                                 .toString().trim();
+        String typeStr  = Objects.requireNonNull(data.get("fieldType"), "fieldType is required")
+                                 .toString().trim().toUpperCase();
+
+        MarkFieldType fieldType;
+        try {
+            fieldType = MarkFieldType.valueOf(typeStr);
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("Invalid fieldType: " + typeStr +
+                ". Must be NUMBER_ONLY, COMMENT_ONLY, or NUMBER_AND_COMMENT");
+        }
+
+        Double maxScore = null;
+        if (fieldType != MarkFieldType.COMMENT_ONLY) {
+            Object ms = data.get("maxScore");
+            if (ms == null)
+                throw new RuntimeException("maxScore is required for numeric criteria");
+            try {
+                maxScore = Double.parseDouble(ms.toString());
+                if (maxScore <= 0)
+                    throw new RuntimeException("maxScore must be greater than 0");
+            } catch (NumberFormatException e) {
+                throw new RuntimeException("maxScore must be a number");
+            }
+        }
+
+        String description = data.containsKey("description")
+            ? data.get("description").toString().trim() : null;
+
+        return MarkingCriterion.builder()
+            .scheme(scheme)
+            .title(titleVal)
+            .fieldType(fieldType)
+            .maxScore(maxScore)
+            .description(description)
+            .displayOrder(order)
+            .build();
+    }
+
+    private ApplicationCategory parseCategory(String category) {
+        try {
+            return ApplicationCategory.valueOf(category.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("Invalid category: " + category +
+                ". Must be one of: CO, SIS, OG, TR, EDU, AB");
+        }
+    }
+
+    private Map<String, Object> schemeToMap(MarkingScheme s) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id",           s.getId());
+        m.put("category",     s.getCategory().name());
+        m.put("title",        s.getTitle());
+        m.put("active",       s.isActive());
+        m.put("createdAt",    s.getCreatedAt().toString());
+        m.put("totalPossible", s.getTotalPossibleMarks());
+
+        List<Map<String, Object>> criteriaList = s.getCriteria().stream().map(c -> {
+            Map<String, Object> cm = new LinkedHashMap<>();
+            cm.put("id",           c.getId());
+            cm.put("title",        c.getTitle());
+            cm.put("fieldType",    c.getFieldType().name());
+            cm.put("maxScore",     c.getMaxScore());
+            cm.put("description",  c.getDescription());
+            cm.put("displayOrder", c.getDisplayOrder());
+            return cm;
+        }).collect(Collectors.toList());
+
+        m.put("criteria",     criteriaList);
+        m.put("criteriaCount",criteriaList.size());
+        return m;
     }
 }

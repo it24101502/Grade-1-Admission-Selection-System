@@ -1,8 +1,6 @@
 // ================================================================
 //  FILE: src/main/java/lk/school/admission/controller/DocumentControllerController.java
-//
-//  API endpoints accessible ONLY by the Document Controller.
-//  Base path: /api/dc/
+//  UPDATED: Added endpoints to manage category slots per parent.
 // ================================================================
 package lk.school.admission.controller;
 
@@ -22,55 +20,52 @@ public class DocumentControllerController {
 
     @Autowired private DocumentControllerService dcService;
 
-    /**
-     * POST /api/dc/create-login
-     * Create a new applicant login account.
-     *
-     * Request body:
-     * {
-     *   "fullName": "Priya Fernando",
-     *   "email":    "priya@gmail.com",
-     *   "nic":      "199012345678"
-     * }
-     *
-     * Response:
-     * {
-     *   "id":       1,
-     *   "fullName": "Priya Fernando",
-     *   "email":    "priya@gmail.com",
-     *   "message":  "Login created. Send the applicant this link: ..."
-     * }
-     */
+    // POST /api/dc/create-login
     @PostMapping("/create-login")
     public ResponseEntity<?> createLogin(@RequestBody Map<String, String> body) {
         try {
-            Map<String, Object> result = dcService.createParentLogin(
-                    body.get("fullName"),
-                    body.get("email"),
-                    body.get("nic")
-            );
-            return ResponseEntity.ok(result);
+            return ResponseEntity.ok(dcService.createParentLogin(
+                    body.get("fullName"), body.get("email"), body.get("nic")));
         } catch (Exception e) {
-            return ResponseEntity
-                    .badRequest()
-                    .body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
-    /**
-     * GET /api/dc/applicants
-     * Get all applicant accounts with their form status.
-     */
-    @GetMapping("/applicants")
-    public ResponseEntity<?> getAllApplicants() {
+    // GET /api/dc/parents
+    @GetMapping("/parents")
+    public ResponseEntity<?> getAllParents() {
         return ResponseEntity.ok(dcService.getAllParents());
     }
 
-    /**
-     * PUT /api/dc/applicants/{id}/reset-password
-     * Reset an applicant's password back to their NIC.
-     */
-    @PutMapping("/applicants/{id}/reset-password")
+    // POST /api/dc/parents/{id}/slots
+    // Body: { "category": "CO", "displayLabel": "Chief Occupant" }
+    @PostMapping("/parents/{id}/slots")
+    public ResponseEntity<?> addSlot(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+        try {
+            return ResponseEntity.ok(dcService.addCategorySlot(
+                    id,
+                    body.get("category"),
+                    body.getOrDefault("displayLabel", "")));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // DELETE /api/dc/slots/{slotId}
+    @DeleteMapping("/slots/{slotId}")
+    public ResponseEntity<?> removeSlot(@PathVariable Long slotId) {
+        try {
+            dcService.removeCategorySlot(slotId);
+            return ResponseEntity.ok(Map.of("message", "Slot removed"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // PUT /api/dc/parents/{id}/reset-password
+    @PutMapping("/parents/{id}/reset-password")
     public ResponseEntity<?> resetPassword(@PathVariable Long id) {
         try {
             dcService.resetParentPassword(id);
@@ -80,11 +75,8 @@ public class DocumentControllerController {
         }
     }
 
-    /**
-     * PUT /api/dc/applicants/{id}/toggle-active
-     * Enable or disable an applicant account.
-     */
-    @PutMapping("/applicants/{id}/toggle-active")
+    // PUT /api/dc/parents/{id}/toggle-active
+    @PutMapping("/parents/{id}/toggle-active")
     public ResponseEntity<?> toggleActive(
             @PathVariable Long id,
             @RequestBody Map<String, Boolean> body) {

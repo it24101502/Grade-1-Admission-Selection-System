@@ -11,6 +11,8 @@
 package lk.school.admission.controller;
 
 import lk.school.admission.service.AuthService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,6 +23,8 @@ import java.util.Map;
 @RequestMapping("/api/auth")
 @CrossOrigin
 public class AuthController {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
     @Autowired private AuthService authService;
 
@@ -44,16 +48,24 @@ public class AuthController {
      */
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> body) {
+        String username = body != null ? body.get("username") : null;
+        String password = body != null ? body.get("password") : null;
+        if (username == null || username.isBlank() || password == null) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Username and password are required"));
+        }
         try {
-            Map<String, Object> result = authService.login(
-                    body.get("username"),
-                    body.get("password")
-            );
+            Map<String, Object> result = authService.login(username, password);
             return ResponseEntity.ok(result);
-        } catch (Exception e) {
+        } catch (org.springframework.security.core.AuthenticationException e) {
             return ResponseEntity
                     .status(401)
                     .body(Map.of("error", "Invalid username or password"));
+        } catch (Exception e) {
+            log.warn("Login failed after authentication (check JWT secret length / algorithm): {}", e.toString());
+            return ResponseEntity
+                    .status(500)
+                    .body(Map.of("error", "Login could not be completed. Check server logs."));
         }
     }
 }

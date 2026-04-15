@@ -1,6 +1,6 @@
 // ================================================================
-//  Parent-facing API: submit application, list own applications,
-//  change password. Secured by ROLE_PARENT + JWT.
+//  FILE: src/main/java/lk/school/admission/controller/ParentController.java
+//  UPDATED: submitApplication now requires slotId in the URL.
 // ================================================================
 package lk.school.admission.controller;
 
@@ -14,67 +14,87 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/parent")
-@CrossOrigin
 @PreAuthorize("hasRole('PARENT')")
+@CrossOrigin
 public class ParentController {
 
     @Autowired private ApplicationService applicationService;
     @Autowired private ParentRepository   parentRepo;
     @Autowired private PasswordEncoder    passwordEncoder;
 
-    private Parent currentParent(Authentication auth) {
-        return parentRepo.findByEmail(auth.getName())
-                .orElseThrow(() -> new RuntimeException("Parent account not found"));
-    }
-
-    /** POST /api/parent/applications — body matches ApplicationService.submitApplication keys */
-    @PostMapping("/applications")
-    public ResponseEntity<?> submitApplication(
-            Authentication auth,
-            @RequestBody Map<String, Object> body) {
+    // GET /api/parent/slots
+    // Returns all category slots assigned to this parent (the dashboard list)
+    @GetMapping("/slots")
+    public ResponseEntity<?> getMySlots(Authentication auth) {
         try {
-            Parent p = currentParent(auth);
-            Map<String, Object> result = applicationService.submitApplication(p.getId(), body);
-            return ResponseEntity.ok(result);
+            Long parentId = getParentId(auth);
+            return ResponseEntity.ok(applicationService.getSlotsForParent(parentId));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
-    @GetMapping("/applications")
-    public ResponseEntity<List<Map<String, Object>>> myApplications(Authentication auth) {
-        Parent p = currentParent(auth);
-        return ResponseEntity.ok(applicationService.getByParent(p.getId()));
+    // POST /api/parent/slots/{slotId}/apply
+    // Submit an application for a specific category slot
+    @PostMapping("/slots/{slotId}/apply")
+    public ResponseEntity<?> submitForSlot(
+            @PathVariable Long slotId,
+            @RequestBody Map<String, Object> body,
+            Authentication auth) {
+        try {
+            Long parentId = getParentId(auth);
+            return ResponseEntity.ok(
+                applicationService.submitApplication(parentId, slotId, body));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
-    /** Body: { "currentPassword": "...", "newPassword": "..." } */
+    // GET /api/parent/applications (kept for backwards compatibility)
+    @GetMapping("/applications")
+    public ResponseEntity<?> getMyApplications(Authentication auth) {
+        try {
+            Long parentId = getParentId(auth);
+            return ResponseEntity.ok(applicationService.getByParent(parentId));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // PUT /api/parent/change-password
     @PutMapping("/change-password")
     public ResponseEntity<?> changePassword(
-            Authentication auth,
-            @RequestBody Map<String, String> body) {
-        String current = body.get("currentPassword");
-        String next = body.get("newPassword");
-        if (current == null || next == null || next.length() < 8) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("error", "New password must be at least 8 characters"));
-        }
+            @RequestBody Map<String, String> body,
+            Authentication auth) {
         try {
-            Parent p = currentParent(auth);
-            if (!passwordEncoder.matches(current, p.getPasswordHash())) {
-                return ResponseEntity.status(401)
+            Parent parent = parentRepo.findByEmail(auth.getName())
+                    .orElseThrow(() -> new RuntimeException("Account not found"));
+
+            if (!passwordEncoder.matches(body.get("currentPassword"), parent.getPasswordHash()))
+                return ResponseEntity.badRequest()
                         .body(Map.of("error", "Current password is incorrect"));
-            }
-            p.setPasswordHash(passwordEncoder.encode(next));
-            p.setHasChangedPassword(true);
-            parentRepo.save(p);
-            return ResponseEntity.ok(Map.of("message", "Password updated"));
+
+            String newPwd = body.get("newPassword");
+            if (newPwd == null || newPwd.length() < 8)
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Password must be at least 8 characters"));
+
+            parent.setPasswordHash(passwordEncoder.encode(newPwd));
+            parent.setHasChangedPassword(true);
+            parentRepo.save(parent);
+            return ResponseEntity.ok(Map.of("message", "Password changed successfully"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
+    }
+
+    private Long getParentId(Authentication auth) {
+        return parentRepo.findByEmail(auth.getName())
+                .orElseThrow(() -> new RuntimeException("Parent not found"))
+                .getId();
     }
 }

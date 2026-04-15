@@ -1,290 +1,450 @@
 // FILE: frontend/src/pages/ParentDashboard.jsx
+// Matches Image 3:
+// - Light blue/white theme
+// - Top bar: "Parent" title
+// - Left sidebar with icons
+// - Parent name card top-left with settings icon
+// - Application deadline notice top-right
+// - "Name of the child" accordion dropdowns
+// - Category rows (Chief Occupant, Old Girl, Sister Category) each with "Fill application" button
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { Header, StatusBadge, CategoryBadge, Spinner, Empty } from '../components/shared/UI';
 import { useAuth } from '../context/AuthContext';
 import { parentApi } from '../services/api';
 
+// Category display names
+const CAT_LABELS = {
+  CO:  'Chief Occupant',
+  SIS: 'Sister Category',
+  OG:  'Old Girl',
+  ED:  'Educational',
+  TR:  'Transfer',
+  AB:  'Abroad / Other',
+};
+
 export default function ParentDashboard() {
-  const { user }  = useAuth();
-  const navigate  = useNavigate();
+  const { user, logout } = useAuth();
+  const navigate          = useNavigate();
 
-  const [applications,    setApplications]    = useState([]);
-  const [loading,         setLoading]         = useState(true);
-  const [showChangePwd,   setShowChangePwd]   = useState(false);
+  const [slots,        setSlots]        = useState([]);
+  const [loading,      setLoading]      = useState(true);
+  const [expanded,     setExpanded]     = useState(null);   // which slot accordion is open
+  const [activeSection, setActiveSection] = useState('applications');
 
-  const fetchApps = useCallback(async () => {
+  const fetchSlots = useCallback(async () => {
+    setLoading(true);
     try {
-      const { data } = await parentApi.getMyApplications();
-      setApplications(data);
+      const { data } = await parentApi.getMySlots();
+      setSlots(data);
     } catch {
-      toast.error('Could not load your application');
+      toast.error('Could not load your applications');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { fetchApps(); }, [fetchApps]);
+  useEffect(() => { fetchSlots(); }, [fetchSlots]);
 
-  const hasApplication    = applications.length > 0;
-  const needsPasswordChange = user && !user.hasChangedPassword;
+  const handleLogout = () => { logout(); navigate('/'); };
 
   return (
-    <div className="app-root">
-      <Header />
-      <div className="main-area">
-        <div className="page-wrap">
+    <div style={{
+      width:      '100vw',
+      minHeight:  '100vh',
+      background: '#f0f2fa',
+      fontFamily: "'DM Sans', sans-serif",
+      display:    'flex',
+      flexDirection: 'column',
+    }}>
 
-          {/* Welcome bar */}
-          <div className="flex justify-between items-center mb-3">
-            <div>
-              <h2 style={{ fontSize: '1.7rem', color: 'var(--gold-300)' }}>
-                Welcome, {user?.name?.split(' ')[0]} 👋
-              </h2>
-              <p className="text-muted text-sm">Grade 1 Admission — Parent Portal</p>
-            </div>
-            <div className="flex gap-2">
-              <button className="btn btn-ghost btn-sm" onClick={() => setShowChangePwd(true)}>
-                🔑 Change Password
-              </button>
-              {!hasApplication && (
-                <button className="btn btn-gold" onClick={() => navigate('/apply')}>
-                  📋 Fill Application Form
-                </button>
-              )}
-            </div>
-          </div>
+      {/* ── Top bar ── */}
+      <div style={{
+        background:    'linear-gradient(135deg, #c5cef0, #d8dff5)',
+        padding:       '18px 32px',
+        borderRadius:  '0 0 20px 20px',
+        display:       'flex',
+        alignItems:    'center',
+        justifyContent:'center',
+        position:      'relative',
+        boxShadow:     '0 2px 12px rgba(100,120,200,0.15)',
+        marginBottom:  '8px',
+      }}>
+        <h1 style={{
+          margin: 0, fontSize: '1.3rem',
+          color: '#2a3a6a', fontWeight: 600, letterSpacing: '0.5px',
+        }}>
+          Parent
+        </h1>
+        <button
+          onClick={handleLogout}
+          style={{
+            position:   'absolute', right: '24px',
+            background: 'transparent', border: 'none',
+            color: '#6070a0', cursor: 'pointer', fontSize: '0.82rem',
+            fontFamily: "'DM Sans', sans-serif",
+          }}
+        >
+          Logout
+        </button>
+      </div>
 
-          {/* Password warning */}
-          {needsPasswordChange && (
+      {/* ── Main layout ── */}
+      <div style={{ display: 'flex', flex: 1, gap: 0 }}>
+
+        {/* ── Left sidebar ── */}
+        <div style={{
+          width:      '64px',
+          background: 'linear-gradient(180deg, #dde3f5, #ccd3ed)',
+          borderRadius: '0 20px 20px 0',
+          display:    'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          padding:    '20px 0',
+          gap:        '8px',
+          boxShadow:  '2px 0 8px rgba(100,120,200,0.08)',
+          minHeight:  'calc(100vh - 80px)',
+        }}>
+          {/* Hamburger */}
+          <SidebarBtn title="Menu" active={false}
+            onClick={() => {}}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="3" y1="6" x2="21" y2="6"/>
+              <line x1="3" y1="12" x2="21" y2="12"/>
+              <line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+          </SidebarBtn>
+
+          {/* Profile */}
+          <SidebarBtn title="Profile" active={activeSection === 'profile'}
+            onClick={() => setActiveSection('profile')}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+          </SidebarBtn>
+
+          {/* Applications */}
+          <SidebarBtn title="Applications" active={activeSection === 'applications'}
+            onClick={() => setActiveSection('applications')}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <line x1="9" y1="9" x2="15" y2="9"/>
+              <line x1="9" y1="13" x2="15" y2="13"/>
+              <line x1="9" y1="17" x2="13" y2="17"/>
+            </svg>
+          </SidebarBtn>
+
+          {/* Documents */}
+          <SidebarBtn title="Documents" active={activeSection === 'documents'}
+            onClick={() => setActiveSection('documents')}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+          </SidebarBtn>
+
+          {/* Checklist */}
+          <SidebarBtn title="Status" active={activeSection === 'status'}
+            onClick={() => setActiveSection('status')}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <polyline points="9 11 12 14 22 4"/>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+          </SidebarBtn>
+        </div>
+
+        {/* ── Main content ── */}
+        <div style={{ flex: 1, padding: '24px 32px' }}>
+
+          {/* Parent name card + deadline notice */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '28px' }}>
+
+            {/* Parent info card */}
             <div style={{
-              background: 'rgba(245,158,11,.1)',
-              border: '1px solid rgba(245,158,11,.4)',
-              borderRadius: 'var(--r-md)',
-              padding: '1rem 1.25rem',
-              marginBottom: '1.5rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
+              background:   'white',
+              borderRadius: '14px',
+              padding:      '14px 20px',
+              display:      'flex',
+              alignItems:   'center',
+              gap:          '14px',
+              boxShadow:    '0 2px 10px rgba(100,120,200,0.1)',
+              minWidth:     '280px',
             }}>
-              <span style={{ fontSize: '1.5rem' }}>⚠️</span>
-              <div>
-                <p style={{ color: 'var(--warning)', fontWeight: 600 }}>
-                  You are using your NIC as your password
+              {/* Avatar */}
+              <div style={{
+                width:         '42px', height: '42px',
+                borderRadius:  '10px',
+                background:    'linear-gradient(135deg, #8090d0, #6070b0)',
+                display:       'flex', alignItems: 'center', justifyContent: 'center',
+                color:         'white', fontWeight: 700, fontSize: '1.1rem',
+              }}>
+                {user?.name?.charAt(0) || 'P'}
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, fontWeight: 700, color: '#2a3a6a', fontSize: '0.95rem' }}>
+                  {user?.name || 'Parent'}
                 </p>
-                <p className="text-sm text-muted">
-                  For security, please{' '}
-                  <button
-                    style={{
-                      background: 'none', border: 'none',
-                      color: 'var(--gold-300)', cursor: 'pointer',
-                      textDecoration: 'underline', padding: 0,
-                    }}
-                    onClick={() => setShowChangePwd(true)}
-                  >
-                    change your password
-                  </button>
-                  {' '}to something personal.
+                <p style={{ margin: 0, fontSize: '0.78rem', color: '#8090b0' }}>
+                  Applicant details
+                </p>
+              </div>
+              {/* Settings icons */}
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <div style={{
+                  width: '30px', height: '30px', borderRadius: '8px',
+                  background: '#f0f2fa', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="#8090b0" strokeWidth="2">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+                  </svg>
+                </div>
+                <div style={{
+                  width: '30px', height: '30px', borderRadius: '8px',
+                  background: '#f0f2fa', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="#8090b0" strokeWidth="2">
+                    <rect x="3" y="3" width="7" height="7"/>
+                    <rect x="14" y="3" width="7" height="7"/>
+                    <rect x="3" y="14" width="7" height="7"/>
+                    <rect x="14" y="14" width="7" height="7"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            {/* Application deadline notice */}
+            <div style={{
+              background:   '#fce8e8',
+              border:       '1px solid #f0b0b0',
+              borderRadius: '12px',
+              padding:      '12px 18px',
+              maxWidth:     '280px',
+              display:      'flex',
+              gap:          '10px',
+              alignItems:   'flex-start',
+            }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="#c0392b" strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0, marginTop: '2px' }}>
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              <div>
+                <p style={{ margin: 0, fontWeight: 700, color: '#c0392b', fontSize: '0.85rem' }}>
+                  Application deadline .....
+                </p>
+                <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#a04040' }}>
+                  Please make sure to submit the application/s on or before the deadline.
                 </p>
               </div>
             </div>
-          )}
-
-          {/* Main Content */}
-          {loading ? (
-            <Spinner message="Loading your application..." />
-          ) : !hasApplication ? (
-            /* No application yet */
-            <div className="card card-gold-border" style={{ textAlign: 'center', padding: '3rem 2rem' }}>
-              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📋</div>
-              <h3 style={{ color: 'var(--gold-300)', marginBottom: '0.5rem', fontSize: '1.3rem' }}>
-                You haven't submitted an application yet
-              </h3>
-              <p className="text-muted mb-3" style={{ maxWidth: '420px', margin: '0.5rem auto 1.5rem' }}>
-                Click the button below to fill in your child's Grade 1 application form.
-                It takes about 5–10 minutes.
-              </p>
-              <button className="btn btn-gold btn-lg" onClick={() => navigate('/apply')}>
-                📋 Start Application Form →
-              </button>
-            </div>
-          ) : (
-            /* Show application(s) */
-            applications.map(app => (
-              <ApplicationCard key={app.id} app={app} />
-            ))
-          )}
-
-        </div>
-      </div>
-
-      {showChangePwd && (
-        <ChangePasswordModal onClose={() => setShowChangePwd(false)} />
-      )}
-    </div>
-  );
-}
-
-// ── Application Card ──────────────────────────────────────────
-function ApplicationCard({ app }) {
-  return (
-    <div className="card card-gold-border mb-2">
-      <div className="card-header">
-        <div>
-          <h3 className="card-title">
-            Application {app.applicationNumber ? `#${app.applicationNumber}` : `#${app.id}`}
-          </h3>
-          <p className="text-muted text-sm">
-            Submitted: {app.submittedAt
-              ? new Date(app.submittedAt).toLocaleString()
-              : '—'}
-          </p>
-        </div>
-        <div className="flex gap-2 items-center">
-          <CategoryBadge category={app.category} />
-          <StatusBadge   status={app.status} />
-        </div>
-      </div>
-
-      <div className="form-grid">
-        {[
-          ["Child's Name (English)", app.childNameEnglish],
-          ["Child's Name (Sinhala)", app.childNameSinhala],
-          ['Date of Birth',          app.dateOfBirth],
-          ['Category Applied',       app.category],
-          ['District',               app.district],
-          ['Distance to School',     app.distanceFromSchoolKm
-            ? `${app.distanceFromSchoolKm} km` : '—'],
-        ].map(([label, val]) => (
-          <div key={label}>
-            <p className="form-label">{label}</p>
-            <p style={{ fontSize: '0.9rem' }}>{val || '—'}</p>
           </div>
-        ))}
+
+          {/* Applications section */}
+          {activeSection === 'applications' && (
+            <ApplicationsList
+              slots={slots}
+              loading={loading}
+              expanded={expanded}
+              setExpanded={setExpanded}
+              onRefresh={fetchSlots}
+              navigate={navigate}
+            />
+          )}
+
+        </div>
       </div>
-
-      {app.status === 'SELECTED' && (
-        <div style={{
-          marginTop: '1rem',
-          background: 'rgba(16,185,129,.1)',
-          border: '1px solid rgba(16,185,129,.4)',
-          borderRadius: 'var(--r-md)',
-          padding: '1rem',
-        }}>
-          <p style={{ color: 'var(--success)', fontWeight: 700, fontSize: '1.1rem' }}>
-            🎉 Congratulations! Your child has been SELECTED for admission.
-          </p>
-          <p className="text-muted text-sm mt-1">
-            Please visit the school office within 2 weeks to complete enrolment.
-          </p>
-        </div>
-      )}
-
-      {app.status === 'REJECTED' && (
-        <div style={{
-          marginTop: '1rem',
-          background: 'rgba(239,68,68,.07)',
-          border: '1px solid rgba(239,68,68,.3)',
-          borderRadius: 'var(--r-md)',
-          padding: '1rem',
-        }}>
-          <p style={{ color: 'var(--danger)', fontWeight: 600 }}>
-            Your application was not selected this year.
-          </p>
-          <p className="text-muted text-sm mt-1">
-            For queries, please contact the school admissions office.
-          </p>
-        </div>
-      )}
     </div>
   );
 }
 
-// ── Change Password Modal ─────────────────────────────────────
-function ChangePasswordModal({ onClose }) {
-  const [form,    setForm]    = useState({ current: '', newPwd: '', confirm: '' });
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState('');
+// ── Applications List ─────────────────────────────────────────
+function ApplicationsList({ slots, loading, expanded, setExpanded, onRefresh, navigate }) {
+  if (loading) {
+    return (
+      <div style={{ textAlign: 'center', padding: '3rem', color: '#8090b0' }}>
+        Loading your applications...
+      </div>
+    );
+  }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
+  if (slots.length === 0) {
+    return (
+      <div style={{
+        background: 'white', borderRadius: '16px',
+        padding: '3rem 2rem', textAlign: 'center',
+        boxShadow: '0 2px 10px rgba(100,120,200,0.1)',
+      }}>
+        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📋</div>
+        <h3 style={{ color: '#2a3a6a', marginBottom: '0.5rem' }}>
+          No application slots assigned yet
+        </h3>
+        <p style={{ color: '#8090b0', fontSize: '0.9rem' }}>
+          Please contact the Document Controller to assign your application categories.
+        </p>
+      </div>
+    );
+  }
 
-    if (!form.current)              { setError('Enter your current password'); return; }
-    if (form.newPwd.length < 8)     { setError('New password must be at least 8 characters'); return; }
-    if (form.newPwd !== form.confirm){ setError('Passwords do not match'); return; }
+  // Group slots by child name (from filled application) or show as single list
+  // For now: show each slot as a collapsible row matching image 3
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      {slots.map((slot, idx) => (
+        <SlotAccordion
+          key={slot.slotId}
+          slot={slot}
+          isExpanded={expanded === slot.slotId}
+          onToggle={() => setExpanded(expanded === slot.slotId ? null : slot.slotId)}
+          onFillApplication={() => navigate(`/apply/${slot.slotId}`)}
+        />
+      ))}
+    </div>
+  );
+}
 
-    setLoading(true);
-    try {
-      await parentApi.changePassword(form.current, form.newPwd);
-      toast.success('✅ Password changed successfully!');
-      onClose();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to change password');
-    } finally {
-      setLoading(false);
-    }
-  };
+// ── Slot Accordion Row ────────────────────────────────────────
+function SlotAccordion({ slot, isExpanded, onToggle, onFillApplication }) {
+  const label = slot.displayLabel || CAT_LABELS[slot.category] || slot.category;
 
   return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal-box" style={{ maxWidth: '420px' }}>
-        <div className="modal-header">
-          <h2 className="modal-title">🔑 Change Password</h2>
-          <button className="modal-close" onClick={onClose}>✕</button>
-        </div>
+    <div style={{
+      background:   'white',
+      borderRadius: '14px',
+      overflow:     'hidden',
+      boxShadow:    '0 2px 10px rgba(100,120,200,0.08)',
+    }}>
 
-        {error && (
+      {/* Accordion header */}
+      <button
+        onClick={onToggle}
+        style={{
+          width:      '100%',
+          padding:    '18px 24px',
+          background: isExpanded
+            ? 'linear-gradient(135deg, #d0d8f0, #c5cef0)'
+            : 'linear-gradient(135deg, #e8ecf8, #dde3f5)',
+          border:     'none',
+          cursor:     'pointer',
+          display:    'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          fontFamily: "'DM Sans', sans-serif",
+          borderRadius: isExpanded ? '14px 14px 0 0' : '14px',
+          transition: 'all 0.2s',
+        }}
+      >
+        <span style={{ fontSize: '1rem', fontWeight: 500, color: '#2a3a6a' }}>
+          Name of the child
+        </span>
+        <svg
+          width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="#6070a0" strokeWidth="2.5" strokeLinecap="round"
+          style={{
+            transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)',
+            transition: 'transform 0.2s',
+          }}
+        >
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+
+      {/* Expanded: category rows */}
+      {isExpanded && (
+        <div style={{ padding: '0' }}>
           <div style={{
-            background: 'rgba(239,68,68,.1)',
-            border: '1px solid rgba(239,68,68,.3)',
-            borderRadius: 'var(--r-sm)',
-            padding: '0.6rem 0.8rem',
-            color: '#fca5a5',
-            fontSize: '0.85rem',
-            marginBottom: '1rem',
+            display:    'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding:    '16px 24px',
+            background: 'linear-gradient(135deg, #d8deef, #cdd5ea)',
+            borderTop:  '1px solid rgba(100,130,200,0.1)',
           }}>
-            ❌ {error}
-          </div>
-        )}
+            <span style={{ fontSize: '0.95rem', fontWeight: 500, color: '#2a3a6a' }}>
+              {label}
+            </span>
 
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label">Current Password (NIC if not changed yet)</label>
-            <input
-              className="form-control"
-              type="password"
-              placeholder="Your current password"
-              value={form.current}
-              onChange={e => { setForm(f => ({...f, current: e.target.value})); setError(''); }}
-            />
+            {slot.filled ? (
+              /* Already submitted */
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{
+                  fontSize: '0.75rem', color: '#2e7d32',
+                  background: 'rgba(46,125,50,0.1)',
+                  border: '1px solid rgba(46,125,50,0.3)',
+                  borderRadius: '20px', padding: '3px 10px', fontWeight: 600,
+                }}>
+                  ✅ Submitted — {slot.applicationNumber}
+                </span>
+              </div>
+            ) : (
+              /* Not yet filled */
+              <button
+                onClick={onFillApplication}
+                style={{
+                  background:   'linear-gradient(135deg, #e8ecf8, #d8def5)',
+                  border:       '1px solid rgba(100,130,200,0.3)',
+                  borderRadius: '20px',
+                  padding:      '6px 18px',
+                  fontSize:     '0.8rem',
+                  fontWeight:   600,
+                  color:        '#3050a0',
+                  cursor:       'pointer',
+                  fontFamily:   "'DM Sans', sans-serif",
+                  transition:   'all 0.2s',
+                  whiteSpace:   'nowrap',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #d0d8f5, #c0ccf0)';
+                  e.currentTarget.style.transform  = 'translateY(-1px)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #e8ecf8, #d8def5)';
+                  e.currentTarget.style.transform  = 'translateY(0)';
+                }}
+              >
+                Fill application
+              </button>
+            )}
           </div>
-          <div className="form-group">
-            <label className="form-label">New Password</label>
-            <input
-              className="form-control"
-              type="password"
-              placeholder="At least 8 characters"
-              value={form.newPwd}
-              onChange={e => { setForm(f => ({...f, newPwd: e.target.value})); setError(''); }}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Confirm New Password</label>
-            <input
-              className="form-control"
-              type="password"
-              placeholder="Re-enter new password"
-              value={form.confirm}
-              onChange={e => { setForm(f => ({...f, confirm: e.target.value})); setError(''); }}
-            />
-          </div>
-          <button className="btn btn-gold btn-full" type="submit" disabled={loading}>
-            {loading ? '⏳ Updating...' : 'Update Password'}
-          </button>
-        </form>
-      </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+// ── Sidebar Button ────────────────────────────────────────────
+function SidebarBtn({ children, active, onClick, title }) {
+  return (
+    <button
+      title={title}
+      onClick={onClick}
+      style={{
+        width:        '44px', height: '44px',
+        borderRadius: '12px',
+        border:       'none',
+        background:   active
+                      ? 'linear-gradient(135deg, #7080c0, #5060a0)'
+                      : 'transparent',
+        color:        active ? 'white' : '#6070a0',
+        cursor:       'pointer',
+        display:      'flex',
+        alignItems:   'center',
+        justifyContent: 'center',
+        transition:   'all 0.2s',
+      }}
+    >
+      {children}
+    </button>
   );
 }

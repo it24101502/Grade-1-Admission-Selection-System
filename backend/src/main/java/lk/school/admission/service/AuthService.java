@@ -74,7 +74,7 @@ public class AuthService {
             response.put("name",               p.getFullName());
             response.put("id",                 p.getId());
             response.put("email",              p.getEmail());
-            response.put("hasChangedPassword", p.isHasChangedPassword());
+            response.put("hasChangedPassword", p.hasChangedPassword());
             return response;
         }
 

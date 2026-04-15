@@ -1,77 +1,27 @@
-// ================================================================
-//  FILE: frontend/src/pages/ApplicationFormPage.jsx
-//
-//  Parent application datasheet (4 steps) → POST /api/parent/applications
-// ================================================================
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
-import { parentApi } from '../services/api';
-
-/** Maps UI state → Spring Boot ApplicationService.submitApplication body */
-function buildApplicationPayload(child, applicant, mother, father) {
-  const opt = (v) => {
-    if (v == null) return null;
-    const s = String(v).trim();
-    return s === '' ? null : s;
-  };
-  return {
-    applicantNameEnglish: applicant.nameEn.trim(),
-    applicantNameSinhala: applicant.nameSi.trim(),
-    applicantRelationship: applicant.relationship,
-    contactNumber: applicant.contact.trim(),
-    phoneNumber: applicant.phone.trim(),
-    addressLine1: applicant.addrLine1.trim(),
-    addressLine2: applicant.addrLine2?.trim() || '',
-    addressLine3: applicant.addrLine3?.trim() || '',
-    town: applicant.town.trim(),
-    street: applicant.street.trim(),
-    district: applicant.district,
-    applicantNic: applicant.nic.trim(),
-    locationLink: applicant.mapsLink.trim(),
-    childNameEnglish: child.nameEn.trim(),
-    childNameSinhala: child.nameSi.trim(),
-    birthCertNumber: child.certNo.trim(),
-    birthCertDivision: child.certDivision.trim(),
-    birthCertDistrict: child.certDistrict,
-    dateOfBirth: child.dob,
-    category: applicant.category,
-    motherFullName: opt(mother.name),
-    motherContact: opt(mother.contact),
-    motherIdNumber: opt(mother.nic),
-    motherOccupation: opt(mother.occupation),
-    motherPlaceOfWork: opt(mother.workplace),
-    motherEmail: opt(mother.email),
-    fatherFullName: opt(father.name),
-    fatherContact: opt(father.contact),
-    fatherIdNumber: opt(father.nic),
-    fatherOccupation: opt(father.occupation),
-    fatherPlaceOfWork: opt(father.workplace),
-    fatherEmail: opt(father.email),
-  };
-}
+import { useState, useEffect, useCallback } from "react";
 
 // ─────────────────────────────────────────────────────────────
 //  CONSTANTS
 // ─────────────────────────────────────────────────────────────
 const SRI_LANKA_DISTRICTS = [
-  'Colombo', 'Gampaha', 'Kalutara', 'Kandy', 'Matale', 'Nuwara Eliya',
-  'Galle', 'Matara', 'Hambantota', 'Jaffna', 'Kilinochchi', 'Mannar',
-  'Vavuniya', 'Mullaitivu', 'Batticaloa', 'Ampara', 'Trincomalee',
-  'Kurunegala', 'Puttalam', 'Anuradhapura', 'Polonnaruwa', 'Badulla',
-  'Monaragala', 'Ratnapura', 'Kegalle',
+  "Colombo","Gampaha","Kalutara","Kandy","Matale","Nuwara Eliya",
+  "Galle","Matara","Hambantota","Jaffna","Kilinochchi","Mannar",
+  "Vavuniya","Mullaitivu","Batticaloa","Ampara","Trincomalee",
+  "Kurunegala","Puttalam","Anuradhapura","Polonnaruwa","Badulla",
+  "Monaragala","Ratnapura","Kegalle",
 ];
 
 const CATEGORIES = [
-  { code: 'OG', label: 'OG — Old Girls / Old Boys' },
-  { code: 'SIS', label: 'SIS — Siblings' },
-  { code: 'CO', label: 'CO — Category CO' },
-  { code: 'TR', label: 'TR — Transfer' },
-  { code: 'ED', label: 'ED — Educational' },
-  { code: 'AB', label: 'AB — Abroad / Other' },
+  { code: "OG",  label: "OG — Old Girls / Old Boys" },
+  { code: "SIS", label: "SIS — Siblings" },
+  { code: "CO",  label: "CO — Chief Occupant" },
+  { code: "TR",  label: "TR — Transfer" },
+  { code: "ED",  label: "ED — Educational" },
+  { code: "AB",  label: "AB — Abroad / Other" },
 ];
 
-const SECTION_LABELS = ['Applicant', 'Child', 'Parents', 'Review'];
+const SECTIONS = ["applicant", "child", "parents", "review"];
+const SECTION_LABELS = ["Applicant", "Child", "Parents", "Review"];
 
 // ─────────────────────────────────────────────────────────────
 //  UTILITIES
@@ -92,6 +42,14 @@ function extractCoords(link) {
   const m = link.match(/[@?q=](-?\d+\.\d+),(-?\d+\.\d+)/);
   return m ? { lat: parseFloat(m[1]), lon: parseFloat(m[2]) } : null;
 }
+
+// Mock API — replace with real import: import { applicantApi } from '../services/api';
+const applicantApi = {
+  submitApplication: (data) =>
+    new Promise((res) =>
+      setTimeout(() => res({ data: { applicationNumber: "APP-" + Math.floor(Math.random() * 90000 + 10000) } }), 1400)
+    ),
+};
 
 // ─────────────────────────────────────────────────────────────
 //  THEME TOKENS
@@ -327,7 +285,6 @@ function ReviewRow({ label, value, t }) {
 //  MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────
 export default function ApplicationFormPage() {
-  const navigate = useNavigate();
   const [dark, setDark] = useState(false);
   const t = dark ? DARK : LIGHT;
 
@@ -375,7 +332,6 @@ export default function ApplicationFormPage() {
       if (!applicant.town.trim())         return "Enter town / city";
       if (!applicant.district)            return "Select district";
       if (!applicant.mapsLink.trim())     return "Paste your Google Maps location link";
-      if (!applicant.category)            return "Select an application category";
     }
     if (idx === 1) {
       if (!child.nameEn.trim())       return "Enter child's full name in English";
@@ -407,19 +363,14 @@ export default function ApplicationFormPage() {
   };
 
   const handleSubmit = async () => {
-    const e0 = validate(0);
-    const e1 = validate(1);
-    if (e0) { showToast(e0); return; }
-    if (e1) { showToast(e1); return; }
     setLoading(true);
     try {
-      const payload = buildApplicationPayload(child, applicant, mother, father);
-      const { data } = await parentApi.submitApplication(payload);
-      setAppNumber(data.applicationNumber || '');
+      const payload = { child, applicant, mother, father };
+      const result = await applicantApi.submitApplication(payload);
+      setAppNumber(result.data.applicationNumber);
       setSubmitted(true);
-      toast.success(data.message || 'Application submitted successfully!');
     } catch (err) {
-      showToast(err?.response?.data?.error || 'Submission failed. Please try again.');
+      showToast(err?.response?.data?.error || "Submission failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -450,17 +401,7 @@ export default function ApplicationFormPage() {
             <div style={{ fontSize:11, color:t.textMuted, textTransform:"uppercase", letterSpacing:1, marginBottom:4 }}>Application Number</div>
             <div style={{ fontSize:26, fontWeight:600, color:"#c4952a", letterSpacing:2 }}>{appNumber}</div>
           </div>
-          <p style={{ fontSize:13, color:t.textMuted, marginBottom:20 }}>Please save this number for your records.</p>
-          <button
-            type="button"
-            onClick={() => navigate('/dashboard')}
-            style={{
-              fontFamily:"'DM Sans',sans-serif", fontSize:14, fontWeight:500, padding:'12px 28px', borderRadius:8,
-              border:'none', cursor:'pointer', background:'#1a4fa0', color:'white',
-            }}
-          >
-            Back to dashboard
-          </button>
+          <p style={{ fontSize:13, color:t.textMuted }}>Please save this number for your records.</p>
         </div>
       </div>
     );
@@ -586,20 +527,34 @@ export default function ApplicationFormPage() {
               </Grid2>
             </FieldGroup>
 
-            <FieldGroup title={<>Application Category <span style={{color:"#ef4444",fontSize:13}}>*</span></>} t={t}>
-              <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginTop:4 }}>
+            <FieldGroup title="Application Category" t={t}>
+              <div style={{ fontSize:12, color:t.textMuted, marginBottom:14 }}>
+                Your application category is assigned at registration and cannot be changed here. Please contact the school if you believe this is incorrect.
+              </div>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
                 {CATEGORIES.map(cat => {
-                  const sel = applicant.category === cat.code;
-                  const cs = t.chipSelected;
+                  const isAssigned = cat.code === "SIS";
                   return (
-                    <button key={cat.code}
-                      onClick={() => setApplicant({...applicant, category: sel ? "" : cat.code})}
-                      style={{ padding:"8px 16px", border:`1.5px solid ${sel ? cs.border : t.chipBorder}`, borderRadius:20, cursor:"pointer", fontSize:13, fontFamily:"'DM Sans',sans-serif", fontWeight: sel ? 500 : 400, color: sel ? cs.text : t.chipText, background: sel ? cs.bg : t.chipBg, transition:"all 0.2s" }}
-                    >
+                    <div key={cat.code} style={{
+                      padding:"9px 18px",
+                      border:`1.5px solid ${isAssigned ? t.chipSelected.border : t.chipBorder}`,
+                      borderRadius:20,
+                      fontSize:13,
+                      fontWeight: isAssigned ? 600 : 400,
+                      color: isAssigned ? t.chipSelected.text : t.textMuted,
+                      background: isAssigned ? t.chipSelected.bg : "transparent",
+                      opacity: isAssigned ? 1 : 0.45,
+                      cursor:"default",
+                      display:"flex", alignItems:"center", gap:6,
+                    }}>
+                      {isAssigned && <span style={{fontSize:11}}>✓</span>}
                       {cat.label}
-                    </button>
+                    </div>
                   );
                 })}
+              </div>
+              <div style={{ marginTop:14, padding:"10px 14px", background: dark ? "rgba(196,149,42,0.1)" : "rgba(196,149,42,0.07)", border:`1px solid ${dark ? "rgba(196,149,42,0.3)" : "rgba(196,149,42,0.25)"}`, borderRadius:8, fontSize:12, color:t.groupTitle, fontWeight:500 }}>
+                Assigned category: <strong>SIS — Siblings</strong>
               </div>
             </FieldGroup>
 

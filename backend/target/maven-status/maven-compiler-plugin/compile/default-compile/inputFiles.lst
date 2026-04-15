@@ -18,10 +18,12 @@
 /Users/siyara/Documents/Grade-1-Admission-Selection-System/backend/src/main/java/lk/school/admission/repository/ApplicationRepository.java
 /Users/siyara/Documents/Grade-1-Admission-Selection-System/backend/src/main/java/lk/school/admission/entity/Judge.java
 /Users/siyara/Documents/Grade-1-Admission-Selection-System/backend/src/main/java/lk/school/admission/entity/ApplicationCategory.java
+/Users/siyara/Documents/Grade-1-Admission-Selection-System/backend/src/main/java/lk/school/admission/repository/CategorySlotRepository.java
 /Users/siyara/Documents/Grade-1-Admission-Selection-System/backend/src/main/java/lk/school/admission/service/ApplicationService.java
 /Users/siyara/Documents/Grade-1-Admission-Selection-System/backend/src/main/java/lk/school/admission/entity/ApplicationStatus.java
 /Users/siyara/Documents/Grade-1-Admission-Selection-System/backend/src/main/java/lk/school/admission/repository/SystemUserRepository.java
 /Users/siyara/Documents/Grade-1-Admission-Selection-System/backend/src/main/java/lk/school/admission/controller/AuthController.java
+/Users/siyara/Documents/Grade-1-Admission-Selection-System/backend/src/main/java/lk/school/admission/entity/CategorySlot.java
 /Users/siyara/Documents/Grade-1-Admission-Selection-System/backend/src/main/java/lk/school/admission/config/DataSeeder.java
 /Users/siyara/Documents/Grade-1-Admission-Selection-System/backend/src/main/java/lk/school/admission/entity/SystemUser.java
 /Users/siyara/Documents/Grade-1-Admission-Selection-System/backend/src/main/java/lk/school/admission/controller/ParentController.java
