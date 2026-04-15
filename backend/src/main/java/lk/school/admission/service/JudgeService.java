@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // ================================================================
 //  FILE: src/main/java/lk/school/admission/service/JudgeService.java
 //
@@ -222,4 +223,4 @@ public class JudgeService {
         m.put("fatherPlaceOfWork",     a.getFatherPlaceOfWork());
         return m;
     }
-}
+} 

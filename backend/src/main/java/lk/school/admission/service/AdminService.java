@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // ================================================================
 //  FILE: src/main/java/lk/school/admission/service/AdminService.java
 //
