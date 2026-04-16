@@ -6,135 +6,115 @@ package lk.school.admission.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+/**
+ * Application form submitted by a parent.
+ * Stored in admission_apps database.
+ *
+ * ARCHITECTURE NOTE (Option 2):
+ * Raw form data lives here.
+ * System processing data (scores, flags, rankings) also lives here
+ * BUT is owned/written by the system layer (judges/admin), NOT by parents.
+ * The judge reference is stored as a plain Long (cross-DB by ID) to avoid
+ * a JPA foreign-key across two separate datasources.
+ */
 @Entity
 @Table(name = "applications")
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Application {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** e.g. CO-0001 */
     @Column(unique = true, length = 20)
     private String applicationNumber;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "parent_id", nullable = false)
-    private Parent parent;
-
-    // Field 1
-    @Column(nullable = false, length = 150)
-    private String applicantNameEnglish;
-    @Column(nullable = false, length = 150)
-    private String applicantNameSinhala;
-    @Column(nullable = false, length = 20)
-    private String applicantRelationship;
-
-    // Field 2
-    @Column(nullable = false, length = 20)
-    private String contactNumber;
-
-    // Field 3
-    @Column(nullable = false, length = 200)
-    private String addressLine1;
-    @Column(length = 200)
-    private String addressLine2;
-    @Column(length = 200)
-    private String addressLine3;
-    @Column(nullable = false, length = 100)
-    private String town;
-    @Column(nullable = false, length = 100)
-    private String street;
-    @Column(nullable = false, length = 100)
-    private String district;
-
-    // Field 4
-    @Column(nullable = false, length = 20)
-    private String phoneNumber;
-
-    // Field 5
-    @Column(nullable = false, length = 20)
-    private String applicantNic;
-
-    // Field 6
-    @Column(nullable = false, columnDefinition = "TEXT")
-    private String locationLink;
-    @Column(precision = 8)
-    private Double distanceFromSchoolKm;
-    private Double homeLat;
-    private Double homeLon;
-
-    // Field 7
-    @Column(nullable = false, length = 150)
-    private String childNameEnglish;
-
-    // Field 8
-    @Column(nullable = false, length = 150)
-    private String childNameSinhala;
-
-    // Field 9
-    @Column(nullable = false, length = 50)
-    private String birthCertNumber;
-    @Column(nullable = false, length = 100)
-    private String birthCertDivision;
-    @Column(nullable = false, length = 100)
-    private String birthCertDistrict;
+    /** FK to Parent in the same (apps) DB */
     @Column(nullable = false)
-    private LocalDate dateOfBirth;
+    private Long parentId;
 
-    // Field 10 - Mother (optional)
-    @Column(length = 150) private String motherFullName;
-    @Column(length = 20)  private String motherContact;
-    @Column(length = 20)  private String motherIdNumber;
-    @Column(length = 100) private String motherOccupation;
-    @Column(length = 200) private String motherPlaceOfWork;
-    @Column(length = 150) private String motherEmail;
+    // ── Category & Status ─────────────────────────────────────
+    /** CO, SIS, OG, TR, EDU, AB */
+    @Column(nullable = false, length = 10)
+    private String category;
 
-    // Field 11 - Father (optional)
-    @Column(length = 150) private String fatherFullName;
-    @Column(length = 20)  private String fatherContact;
-    @Column(length = 20)  private String fatherIdNumber;
-    @Column(length = 100) private String fatherOccupation;
-    @Column(length = 200) private String fatherPlaceOfWork;
-    @Column(length = 150) private String fatherEmail;
+    /** PENDING | SUBMITTED | UNDER_REVIEW | SCORED | SELECTED | REJECTED */
+    @Builder.Default
+    @Column(nullable = false, length = 30)
+    private String status = "PENDING";
 
-    // Field 12
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private ApplicationCategory category;
+    // ── Judge assignment (cross-DB: stored as Long, not @ManyToOne) ──
+    /** ID of the Judge in admission_system who is assigned to this application */
+    private Long assignedJudgeId;
 
-    // System fields
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private ApplicationStatus status = ApplicationStatus.FORM_PENDING;
+    // ── System scoring fields (written by judge/admin) ────────
+    /** Sum of all numeric criterion scores entered by the judge */
+    private Double totalScore;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "assigned_judge_id")
-    private Judge assignedJudge;
-
-    private Double  totalMarks;
     private Integer rankInCategory;
 
-    // ── NEW FIELDS for Step 5 & 6 ─────────────────────────────
-    // Judge's comment after reviewing/visiting (Step 5)
-    @Column(columnDefinition = "TEXT")
-    private String visitComment;
-
-    // Flag reason set by judge (Step 6)
-    private boolean isFlagged = false;
+    /** GREEN | YELLOW | RED | null (null means no flag) */
+    @Column(length = 10)
+    private String flagColor;
 
     @Column(length = 500)
     private String flagReason;
 
-    // Timestamps
+    /** Set by the judge via the marking form */
+    @Column(columnDefinition = "TEXT")
+    private String judgeComment;
+
+    // ── Applicant info ────────────────────────────────────────
+    @Column(length = 150) private String applicantNameEnglish;
+    @Column(length = 150) private String applicantNameSinhala;
+    @Column(length = 30)  private String applicantRelationship;
+    @Column(length = 20)  private String applicantNic;
+    @Column(length = 20)  private String contactNumber;
+    @Column(length = 20)  private String phoneNumber;
+
+    // ── Address ───────────────────────────────────────────────
+    @Column(length = 200) private String addressLine1;
+    @Column(length = 200) private String addressLine2;
+    @Column(length = 100) private String town;
+    @Column(length = 100) private String street;
+    @Column(length = 100) private String district;
+
+    // ── Location / Distance ───────────────────────────────────
+    @Column(columnDefinition = "TEXT")
+    private String locationLink;
+    private Double distanceFromSchoolKm;
+    private Double homeLat;
+    private Double homeLon;
+
+    // ── Child ─────────────────────────────────────────────────
+    @Column(length = 150) private String childNameEnglish;
+    @Column(length = 150) private String childNameSinhala;
+    @Column(length = 50)  private String birthCertNumber;
+    @Column(length = 100) private String birthCertDivision;
+    @Column(length = 100) private String birthCertDistrict;
+    private LocalDate dateOfBirth;
+
+    // ── Mother (optional) ─────────────────────────────────────
+    @Column(length = 150) private String motherFullName;
+    @Column(length = 20)  private String motherContact;
+    @Column(length = 20)  private String motherNic;
+    @Column(length = 100) private String motherOccupation;
+    @Column(length = 200) private String motherWorkplace;
+    @Column(length = 150) private String motherEmail;
+
+    // ── Father (optional) ─────────────────────────────────────
+    @Column(length = 150) private String fatherFullName;
+    @Column(length = 20)  private String fatherContact;
+    @Column(length = 20)  private String fatherNic;
+    @Column(length = 100) private String fatherOccupation;
+    @Column(length = 200) private String fatherWorkplace;
+    @Column(length = 150) private String fatherEmail;
+
+    // ── Timestamps ────────────────────────────────────────────
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
     private LocalDateTime submittedAt;
@@ -144,7 +124,6 @@ public class Application {
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
-        if (this.status == null) this.status = ApplicationStatus.FORM_PENDING;
     }
 
     @PreUpdate
@@ -152,115 +131,9 @@ public class Application {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public ApplicationCategory getCategory() {
-        return category;
-    }
-
-    public void setCategory(ApplicationCategory category) {
-        this.category = category;
-    }
-
-    public ApplicationStatus getStatus() {
-        return status;
-    }
-    
-    public void setStatus(ApplicationStatus status) {
-        this.status = status;
-    }
-
-    public Judge getAssignedJudge() {
-        return assignedJudge;
-    }
-    
-    public void setAssignedJudge(Judge assignedJudge) {
-        this.assignedJudge = assignedJudge;
-    }
-
-    public Double getTotalMarks() {
-        return totalMarks;
-    }
-    
-    
-    public void setTotalMarks(Double totalMarks) {
-        this.totalMarks = totalMarks;
-    }
-
-    public Integer getRankInCategory() {
-        return rankInCategory;
-    }
-    
-    
-    public void setRankInCategory(Integer rankInCategory) {
-        this.rankInCategory = rankInCategory;
-    }
-
-    public String getVisitComment() {
-        return visitComment;
-    }
-    
-    
-    public void setVisitComment(String visitComment) {
-        this.visitComment = visitComment;
-    }
-
+    /** Convenience — true if any flag colour is set */
+    @Transient
     public boolean isFlagged() {
-        return isFlagged;
-    }
-    
-    
-    public void setFlagged(boolean isFlagged) {
-        this.isFlagged = isFlagged;
-    }
-
-    public String getFlagReason() {
-        return flagReason;
-    }
-    
-    
-    public void setFlagReason(String flagReason) {
-        this.flagReason = flagReason;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-    
-    
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getSubmittedAt() {
-        return submittedAt;
-    }
-    
-    
-    public void setSubmittedAt(LocalDateTime submittedAt) {
-        this.submittedAt = submittedAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-    
-    
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
-
-    public String getApplicationNumber() {
-    return applicationNumber;
-}
-
-    public void setApplicationNumber(String applicationNumber) {
-        this.applicationNumber = applicationNumber;
-    }
-
-    public Parent getParent() {
-        return parent;
-    }
-    
-    public void setParent(Parent parent) {
-        this.parent = parent;
+        return this.flagColor != null && !this.flagColor.isBlank();
     }
 }

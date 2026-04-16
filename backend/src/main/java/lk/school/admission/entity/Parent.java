@@ -11,132 +11,60 @@ package lk.school.admission.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-
 import java.time.LocalDateTime;
 
+/**
+ * Parent login account created by the Document Controller.
+ * Stored in admission_apps database (via AppsDataSourceConfig).
+ *
+ * Username = phone number
+ * Password = NIC number (BCrypt hashed), parent changes on first login.
+ */
 @Entity
 @Table(name = "parents")
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-@Data
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+public class Parent {
 
-public class Parent{
-
-    // ── Primary Key ──────────────────────────────────────────────
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // ── Login Credentials (set by Document Controller) ───────────
-    // Email is the username for login
-    @Column(nullable = false, unique = true, length = 150)
-    private String email;
+    /** Login username */
+    @Column(nullable = false, unique = true, length = 20)
+    private String phone;
 
-    // Password stored as BCrypt hash (never plain text)
-    // Initially set to BCrypt(NIC number) by Document Controller
-    @Column(nullable = false)
-    private String passwordHash;
-
-    // ── Parent Basic Info ─────────────────────────────────────────
-    @Column(nullable = false, length = 150)
-    private String fullName;
-
-    // NIC stored for reference (also used as initial password)
+    /** Stored for reference; also the initial password */
     @Column(nullable = false, unique = true, length = 20)
     private String nic;
 
-    // ── Role ──────────────────────────────────────────────────────
-    @Enumerated(EnumType.STRING)
+    /** BCrypt(NIC) initially */
     @Column(nullable = false)
-    private Role role = Role.PARENT;
+    private String passwordHash;
 
-    // ── Account State ─────────────────────────────────────────────
+    /** Child's name entered by DC */
+    @Column(nullable = false, length = 150)
+    private String childName;
+
+    /** CO, SIS, OG, TR, EDU, AB */
+    @Column(nullable = false, length = 10)
+    private String category;
+
+    @Builder.Default
     @Column(nullable = false)
-    private boolean isActive = true;
+    private boolean active = true;
 
-    // Has the parent changed their password from the default (NIC)?
+    @Builder.Default
     @Column(nullable = false)
     private boolean hasChangedPassword = false;
 
-    // ── Timestamps ────────────────────────────────────────────────
+    /** Set once the parent submits their application form */
+    private Long applicationId;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    // ── Lifecycle ─────────────────────────────────────────────────
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
-        if (this.role == null) this.role = Role.PARENT;
-    }
-
-    public String getFullName() {
-    return fullName;
-}
-
-    public void setFullName(String fullName) {
-        this.fullName = fullName;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public Long getId() {
-    return id;
-}
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getPasswordHash() {
-        return passwordHash;
-    }
-
-    public void setPasswordHash(String passwordHash) {
-        this.passwordHash = passwordHash;
-    }
-
-    public Role getRole() {
-        return role;
-    }
-
-    public void setRole(Role role) {
-        this.role = role;
-    }
-
-    public boolean isActive() {
-        return isActive;
-    }
-
-    public void setActive(boolean isActive) {
-        this.isActive = isActive;
-    }
-
-    public boolean hasChangedPassword() {
-        return hasChangedPassword;
-    }
-    
-    public void setHasChangedPassword(boolean hasChangedPassword) {
-        this.hasChangedPassword = hasChangedPassword;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public String getNic() {
-        return nic;
-    }
-
-    public void setNic(String nic) {
-        this.nic = nic;
     }
 }
