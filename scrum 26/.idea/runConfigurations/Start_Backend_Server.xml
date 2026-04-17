@@ -1,0 +1,15 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Start Backend Server" type="NodeJSConfigurationType" factoryName="Node.js">
+    <node-parameters value=""/>
+    <script-parameters value=""/>
+    <working-directory value="$PROJECT_DIR$"/>
+    <envs>
+      <env name="PORT" value="5000"/>
+      <env name="JWT_SECRET" value="dev_secret_change_in_production"/>
+      <env name="NODE_ENV" value="development"/>
+    </envs>
+    <node-interpreter value="node"/>
+    <node-js-script-path value="src/server/index.js"/>
+    <method v="2"/>
+  </configuration>
+</component>
