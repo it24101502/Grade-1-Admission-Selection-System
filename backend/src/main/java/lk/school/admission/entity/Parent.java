@@ -5,7 +5,7 @@
 //
 //  Represents a PARENT/GUARDIAN user account.
 //  Created by the Document Controller.
-//  Login: email = username, NIC = initial password.
+//  Login: phone number = username, NIC = initial password.
 // ================================================================
 package lk.school.admission.entity;
 
@@ -15,10 +15,15 @@ import java.time.LocalDateTime;
 
 /**
  * Parent login account created by the Document Controller.
- * Stored in admission_apps database (via AppsDataSourceConfig).
+ * Stored in admission_apps database.
  *
  * Username = phone number
  * Password = NIC number (BCrypt hashed), parent changes on first login.
+ *
+ * A parent can apply in MULTIPLE categories.
+ * Each category is tracked in the ParentApplication table (one row per category).
+ * The DC calls createOrUpdateParent() with phone+NIC+childName+category each time.
+ * If the phone+NIC match an existing parent, a new category row is added.
  */
 @Entity
 @Table(name = "parents")
@@ -45,10 +50,6 @@ public class Parent {
     @Column(nullable = false, length = 150)
     private String childName;
 
-    /** CO, SIS, OG, TR, EDU, AB */
-    @Column(nullable = false, length = 10)
-    private String category;
-
     @Builder.Default
     @Column(nullable = false)
     private boolean active = true;
@@ -56,9 +57,6 @@ public class Parent {
     @Builder.Default
     @Column(nullable = false)
     private boolean hasChangedPassword = false;
-
-    /** Set once the parent submits their application form */
-    private Long applicationId;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

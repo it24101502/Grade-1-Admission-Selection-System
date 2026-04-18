@@ -24,7 +24,7 @@ public class MarkingCriterion {
     private String title;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 30)
     private MarkFieldType fieldType;
 
     /** Null when fieldType = COMMENT_ONLY */

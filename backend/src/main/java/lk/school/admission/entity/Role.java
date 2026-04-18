@@ -5,8 +5,7 @@
 package lk.school.admission.entity;
 
 public enum Role {
-    PARENT,           // Parent who fills the form
+    ADMIN,               // Full access — Principal
     DOCUMENT_CONTROLLER, // Creates logins for applicants
-    JUDGE,               // Reviews and marks applications
-    ADMIN                // Full access — Principal
+    USER                 // Reviews and marks applications
 }

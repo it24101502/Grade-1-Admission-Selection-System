@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
  * Raw form data lives here.
  * System processing data (scores, flags, rankings) also lives here
  * BUT is owned/written by the system layer (judges/admin), NOT by parents.
- * The judge reference is stored as a plain Long (cross-DB by ID) to avoid
+ * The user reference is stored as a plain Long (cross-DB by ID) to avoid
  * a JPA foreign-key across two separate datasources.
  */
 @Entity
@@ -47,12 +47,12 @@ public class Application {
     @Column(nullable = false, length = 30)
     private String status = "PENDING";
 
-    // ── Judge assignment (cross-DB: stored as Long, not @ManyToOne) ──
-    /** ID of the Judge in admission_system who is assigned to this application */
-    private Long assignedJudgeId;
+    // ── User assignment (cross-DB: stored as Long, not @ManyToOne) ──
+    /** ID of the User in admission_system who is assigned to this application */
+    private Long assignedUserId;
 
-    // ── System scoring fields (written by judge/admin) ────────
-    /** Sum of all numeric criterion scores entered by the judge */
+    // ── System scoring fields (written by user/admin) ────────
+    /** Sum of all numeric criterion scores entered by the user */
     private Double totalScore;
 
     private Integer rankInCategory;
@@ -64,9 +64,9 @@ public class Application {
     @Column(length = 500)
     private String flagReason;
 
-    /** Set by the judge via the marking form */
+    /** Set by the user via the marking form */
     @Column(columnDefinition = "TEXT")
-    private String judgeComment;
+    private String userComment;
 
     // ── Applicant info ────────────────────────────────────────
     @Column(length = 150) private String applicantNameEnglish;
