@@ -4,14 +4,20 @@
 //  STEP 7: Admin views all applications across categories,
 //          publishes results by selecting top N per category.
 // ================================================================
+// ================================================================
+//  FILE: src/main/java/lk/school/admission/service/AdminService.java
+//
+//  STEP 7: Admin views all applications across categories,
+//          publishes results by selecting top N per category.
+// ================================================================
 package lk.school.admission.service;
 
 import lk.school.admission.entity.Application;
 import lk.school.admission.entity.ApplicationCategory;
-import lk.school.admission.entity.Judge;
+import lk.school.admission.entity.User;
 import lk.school.admission.repository.apps.ApplicationRepository;
 import lk.school.admission.repository.apps.ParentRepository;
-import lk.school.admission.repository.system.JudgeRepository;
+import lk.school.admission.repository.system.UserRepository;
 import lk.school.admission.repository.system.SystemUserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -25,7 +31,7 @@ public class AdminService {
 
     @Autowired private ApplicationRepository appRepo;
     @Autowired private ParentRepository      parentRepo;
-    @Autowired private JudgeRepository       judgeRepo;
+    @Autowired private UserRepository       userRepo;
     @Autowired private SystemUserRepository  systemUserRepo;
 
     // ── Dashboard stats ───────────────────────────────────────
@@ -37,7 +43,7 @@ public class AdminService {
         Map<String, Object> stats = new LinkedHashMap<>();
         stats.put("totalApplications", all.size());
         stats.put("totalParents",       parentRepo.count());
-        stats.put("totalJudges",        judgeRepo.count());
+        stats.put("totalUsers",        userRepo.count());
 
         // Count by status
         Map<String, Long> byStatus = new LinkedHashMap<>();
@@ -183,21 +189,21 @@ public class AdminService {
         );
     }
 
-    // ── Judge progress ────────────────────────────────────────
+    // ── User progress ────────────────────────────────────────
 
     @Transactional(value = "appsTransactionManager", readOnly = true)
-    public List<Map<String, Object>> getJudgeProgress() {
-        return judgeRepo.findAll().stream().map(judge -> {
-            List<Application> assigned = appRepo.findByCategoryAndAssignedJudgeId(
-                judge.getCategory().name(), judge.getId());
+    public List<Map<String, Object>> getUserProgress() {
+        return userRepo.findAll().stream().map(user -> {
+            List<Application> assigned = appRepo.findByCategoryAndAssignedUserId(
+                user.getCategory().name(), user.getId());
             long total  = assigned.size();
             long scored = assigned.stream().filter(a -> a.getTotalScore() != null).count();
 
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("id",            judge.getId());
-            m.put("name",          judge.getFullName());
-            m.put("username",      judge.getUsername());
-            m.put("category",      judge.getCategory().name());
+            m.put("id",            user.getId());
+            m.put("name",          user.getFullName());
+            m.put("username",      user.getUsername());
+            m.put("category",      user.getCategory().name());
             m.put("total",         total);
             m.put("scored",        scored);
             m.put("pending",       total - scored);
@@ -224,12 +230,12 @@ public class AdminService {
         m.put("rankInCategory",       a.getRankInCategory());
         m.put("flagColor",            a.getFlagColor());
         m.put("flagReason",           a.getFlagReason());
-        m.put("judgeComment",         a.getJudgeComment());
+        m.put("userComment",         a.getUserComment());
         m.put("dateOfBirth",          a.getDateOfBirth() != null ? a.getDateOfBirth().toString() : null);
         m.put("submittedAt",          a.getSubmittedAt() != null ? a.getSubmittedAt().toString() : null);
 
-        if (includeJudgeName && a.getAssignedJudgeId() != null) {
-            judgeRepo.findById(a.getAssignedJudgeId())
+        if (includeJudgeName && a.getAssignedUserId() != null) {
+            userRepo.findById(a.getAssignedUserId())
                 .ifPresent(j -> m.put("assignedJudge", j.getFullName()));
         }
         return m;

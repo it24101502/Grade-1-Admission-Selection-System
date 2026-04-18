@@ -5,77 +5,85 @@
 //    - "applicant" references → "parent"
 //    - role "APPLICANT" → "PARENT"
 // ================================================================
+// ================================================================
+//  FILE: src/main/java/lk/school/admission/service/AuthService.java
+// ================================================================
 package lk.school.admission.service;
 
-import lk.school.admission.entity.*;
-import lk.school.admission.repository.*;
+import lk.school.admission.entity.User;
+import lk.school.admission.entity.Parent;
+import lk.school.admission.entity.SystemUser;
+import lk.school.admission.repository.apps.ParentRepository;
+import lk.school.admission.repository.system.UserRepository;
+import lk.school.admission.repository.system.SystemUserRepository;
 import lk.school.admission.security.JwtUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.authentication.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 @Service
 public class AuthService {
 
-    @Autowired private AuthenticationManager authManager;
-    @Autowired private JwtUtils              jwtUtils;
-    @Autowired private ParentRepository      parentRepo;      // UPDATED
-    @Autowired private JudgeRepository       judgeRepo;
-    @Autowired private SystemUserRepository  systemUserRepo;
+    @Autowired private AuthenticationManager  authManager;
+    @Autowired private JwtUtils               jwtUtils;
+    @Autowired private SystemUserRepository   systemUserRepo;
+    @Autowired private UserRepository         userRepo;
+    @Autowired private ParentRepository       parentRepo;
 
-    // ── Universal Login ───────────────────────────────────────────
+    /**
+     * Universal login for all user types.
+     *   Admin / DC  → username = email
+     *   User        → username = user_co / user_sis / ...
+     *   Parent      → username = phone number, password = NIC (initial)
+     */
     public Map<String, Object> login(String username, String password) {
-
-        // Authenticate credentials — throws if wrong
         Authentication auth = authManager.authenticate(
-                new UsernamePasswordAuthenticationToken(username, password));
+            new UsernamePasswordAuthenticationToken(username, password));
         SecurityContextHolder.getContext().setAuthentication(auth);
 
         String token = jwtUtils.generateToken(auth);
+        Map<String, Object> resp = new LinkedHashMap<>();
+        resp.put("token", token);
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("token", token);
-
-        // ── Check SystemUser (Admin / DC) ─────────────────────────
+        // Admin / DC
         var sysUser = systemUserRepo.findByEmail(username);
         if (sysUser.isPresent()) {
             SystemUser u = sysUser.get();
-            response.put("role",  u.getRole().name());
-            response.put("name",  u.getFullName());
-            response.put("id",    u.getId());
-            response.put("email", u.getEmail());
-            return response;
+            resp.put("role",  u.getRole().name());
+            resp.put("name",  u.getFullName());
+            resp.put("id",    u.getId());
+            resp.put("email", u.getEmail());
+            return resp;
         }
 
-        // ── Check Judge ───────────────────────────────────────────
-        var judge = judgeRepo.findByUsername(username);
-        if (judge.isPresent()) {
-            Judge j = judge.get();
-            response.put("role",              "JUDGE");
-            response.put("name",              j.getFullName());
-            response.put("id",                j.getId());
-            response.put("username",          j.getUsername());
-            response.put("category",          j.getCategory().name());
-            response.put("forcePasswordReset",j.isForcePasswordReset());
-            return response;
+        // User
+        var userOpt = userRepo.findByUsername(username);
+        if (userOpt.isPresent()) {
+            User u = userOpt.get();          // Fixed: was using undefined variable j
+            resp.put("role",     "USER");
+            resp.put("name",     u.getFullName());
+            resp.put("id",       u.getId());
+            resp.put("username", u.getUsername());
+            resp.put("category", u.getCategory().name());
+            return resp;
         }
 
-        // ── Check Parent (UPDATED from Applicant) ─────────────────
-        var parent = parentRepo.findByEmail(username);
+        // Parent (login with phone number)
+        var parent = parentRepo.findByPhone(username);
         if (parent.isPresent()) {
             Parent p = parent.get();
-            response.put("role",               "PARENT");           // UPDATED
-            response.put("name",               p.getFullName());
-            response.put("id",                 p.getId());
-            response.put("email",              p.getEmail());
-            response.put("hasChangedPassword", p.hasChangedPassword());
-            return response;
+            resp.put("role",               "PARENT");
+            resp.put("name",               p.getChildName());
+            resp.put("id",                 p.getId());
+            resp.put("phone",              p.getPhone());
+            resp.put("category",           p.getCategory());
+            resp.put("hasChangedPassword", p.isHasChangedPassword());
+            resp.put("applicationId",      p.getApplicationId());
+            return resp;
         }
 
         throw new RuntimeException("User not found after authentication");

@@ -6,11 +6,13 @@
 package lk.school.admission.service;
 
 import lk.school.admission.entity.Application;
-import lk.school.admission.entity.Judge;
+import lk.school.admission.entity.ApplicationCategory;
 import lk.school.admission.entity.Parent;
+import lk.school.admission.entity.ParentApplication;
 import lk.school.admission.repository.apps.ApplicationRepository;
+import lk.school.admission.repository.apps.ParentApplicationRepository;
 import lk.school.admission.repository.apps.ParentRepository;
-import lk.school.admission.repository.system.JudgeRepository;
+import lk.school.admission.repository.system.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -19,20 +21,50 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class ApplicationService {
 
-    @Autowired private ApplicationRepository appRepo;
-    @Autowired private ParentRepository      parentRepo;
-    @Autowired private JudgeRepository       judgeRepo;
+    @Autowired private ApplicationRepository       appRepo;
+    @Autowired private ParentRepository            parentRepo;
+    @Autowired private ParentApplicationRepository parentAppRepo;
+    @Autowired private UserRepository              userRepo;
 
     @Value("${school.latitude}")  private double schoolLat;
     @Value("${school.longitude}") private double schoolLon;
 
     /**
-     * Get the current parent's application status.
-     * Returns the application if submitted, or the parent's seed info if not yet.
+     * Returns all category slots assigned to this parent — one entry per category.
+     * This drives the parent dashboard list.
+     */
+    @Transactional(value = "appsTransactionManager", readOnly = true)
+    public List<Map<String, Object>> getSlotsForParent(Long parentId) {
+        Parent parent = parentRepo.findById(parentId)
+            .orElseThrow(() -> new RuntimeException("Parent not found"));
+
+        return parentAppRepo.findByParentId(parentId).stream().map(slot -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("slotId",    slot.getId());
+            m.put("category",  slot.getCategory());
+            m.put("childName", parent.getChildName());
+            m.put("filled",    slot.getApplicationId() != null);
+
+            if (slot.getApplicationId() != null) {
+                appRepo.findById(slot.getApplicationId()).ifPresent(app -> {
+                    m.put("applicationNumber", app.getApplicationNumber());
+                    m.put("status",            app.getStatus());
+                    m.put("totalScore",        app.getTotalScore());
+                    m.put("flagColor",         app.getFlagColor());
+                    m.put("childNameEnglish",  app.getChildNameEnglish());
+                });
+            }
+            return m;
+        }).collect(Collectors.toList());
+    }
+
+    /**
+     * Full status summary for this parent.
      */
     @Transactional(value = "appsTransactionManager", readOnly = true)
     public Map<String, Object> getParentStatus(Long parentId) {
@@ -40,30 +72,31 @@ public class ApplicationService {
             .orElseThrow(() -> new RuntimeException("Parent not found"));
 
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("childName", parent.getChildName());
-        result.put("category",  parent.getCategory());
-        result.put("phone",     parent.getPhone());
-        result.put("hasSubmitted", parent.getApplicationId() != null);
-
-        if (parent.getApplicationId() != null) {
-            appRepo.findById(parent.getApplicationId()).ifPresent(app -> {
-                result.put("application", appToMap(app));
-            });
-        }
+        result.put("childName",   parent.getChildName());
+        result.put("phone",       parent.getPhone());
+        result.put("slots",       getSlotsForParent(parentId));
         return result;
     }
 
     /**
-     * Parent submits their full application form.
-     * Can only be submitted once per parent.
+     * Parent submits application for a specific category.
+     * The category must be one assigned by the DC.
+     * Each category can only be submitted once.
      */
     @Transactional("appsTransactionManager")
-    public Map<String, Object> submitApplication(Long parentId, Map<String, Object> data) {
+    public Map<String, Object> submitApplication(Long parentId, String category,
+                                                  Map<String, Object> data) {
         Parent parent = parentRepo.findById(parentId)
             .orElseThrow(() -> new RuntimeException("Parent account not found"));
 
-        if (parent.getApplicationId() != null)
-            throw new RuntimeException("You have already submitted an application");
+        ParentApplication slot = parentAppRepo
+            .findByParentIdAndCategory(parentId, category.toUpperCase())
+            .orElseThrow(() -> new RuntimeException(
+                "You are not assigned to apply in category: " + category));
+
+        if (slot.getApplicationId() != null)
+            throw new RuntimeException(
+                "You have already submitted an application for category " + category);
 
         String locationLink = (String) data.get("locationLink");
         double[] coords     = extractCoordinates(locationLink);
@@ -71,53 +104,53 @@ public class ApplicationService {
             ? calculateHaversineDistance(coords[0], coords[1]) : 0.0;
 
         Application app = Application.builder()
-            .parentId               (parentId)
-            .category               (parent.getCategory())   // category set by DC, not editable
-            .status                 ("SUBMITTED")
-            .submittedAt            (LocalDateTime.now())
-            .applicantNameEnglish   (str(data, "applicantNameEnglish"))
-            .applicantNameSinhala   (str(data, "applicantNameSinhala"))
-            .applicantRelationship  (str(data, "applicantRelationship"))
-            .applicantNic           (str(data, "applicantNic"))
-            .contactNumber          (str(data, "contactNumber"))
-            .phoneNumber            (str(data, "phoneNumber"))
-            .addressLine1           (str(data, "addressLine1"))
-            .addressLine2           (str(data, "addressLine2"))
-            .town                   (str(data, "town"))
-            .street                 (str(data, "street"))
-            .district               (str(data, "district"))
-            .locationLink           (locationLink)
-            .distanceFromSchoolKm   (distance)
-            .homeLat                (coords != null ? coords[0] : null)
-            .homeLon                (coords != null ? coords[1] : null)
-            .childNameEnglish       (str(data, "childNameEnglish"))
-            .childNameSinhala       (str(data, "childNameSinhala"))
-            .birthCertNumber        (str(data, "birthCertNumber"))
-            .birthCertDivision      (str(data, "birthCertDivision"))
-            .birthCertDistrict      (str(data, "birthCertDistrict"))
-            .dateOfBirth            (data.get("dateOfBirth") != null
+            .parentId                (parentId)
+            .category                (category.toUpperCase())
+            .status                  ("SUBMITTED")
+            .submittedAt             (LocalDateTime.now())
+            .applicantNameEnglish    (str(data, "applicantNameEnglish"))
+            .applicantNameSinhala    (str(data, "applicantNameSinhala"))
+            .applicantRelationship   (str(data, "applicantRelationship"))
+            .applicantNic            (str(data, "applicantNic"))
+            .contactNumber           (str(data, "contactNumber"))
+            .phoneNumber             (str(data, "phoneNumber"))
+            .addressLine1            (str(data, "addressLine1"))
+            .addressLine2            (str(data, "addressLine2"))
+            .town                    (str(data, "town"))
+            .street                  (str(data, "street"))
+            .district                (str(data, "district"))
+            .locationLink            (locationLink)
+            .distanceFromSchoolKm    (distance)
+            .homeLat                 (coords != null ? coords[0] : null)
+            .homeLon                 (coords != null ? coords[1] : null)
+            .childNameEnglish        (str(data, "childNameEnglish"))
+            .childNameSinhala        (str(data, "childNameSinhala"))
+            .birthCertNumber         (str(data, "birthCertNumber"))
+            .birthCertDivision       (str(data, "birthCertDivision"))
+            .birthCertDistrict       (str(data, "birthCertDistrict"))
+            .dateOfBirth             (data.get("dateOfBirth") != null
                 ? LocalDate.parse((String) data.get("dateOfBirth")) : null)
-            .motherFullName         (str(data, "motherFullName"))
-            .motherContact          (str(data, "motherContact"))
-            .motherNic              (str(data, "motherNic"))
-            .motherOccupation       (str(data, "motherOccupation"))
-            .motherWorkplace        (str(data, "motherWorkplace"))
-            .motherEmail            (str(data, "motherEmail"))
-            .fatherFullName         (str(data, "fatherFullName"))
-            .fatherContact          (str(data, "fatherContact"))
-            .fatherNic              (str(data, "fatherNic"))
-            .fatherOccupation       (str(data, "fatherOccupation"))
-            .fatherWorkplace        (str(data, "fatherWorkplace"))
-            .fatherEmail            (str(data, "fatherEmail"))
+            .motherFullName          (str(data, "motherFullName"))
+            .motherContact           (str(data, "motherContact"))
+            .motherNic               (str(data, "motherNic"))
+            .motherOccupation        (str(data, "motherOccupation"))
+            .motherWorkplace         (str(data, "motherWorkplace"))
+            .motherEmail             (str(data, "motherEmail"))
+            .fatherFullName          (str(data, "fatherFullName"))
+            .fatherContact           (str(data, "fatherContact"))
+            .fatherNic               (str(data, "fatherNic"))
+            .fatherOccupation        (str(data, "fatherOccupation"))
+            .fatherWorkplace         (str(data, "fatherWorkplace"))
+            .fatherEmail             (str(data, "fatherEmail"))
             .build();
 
         Application saved = appRepo.save(app);
         assignApplicationNumber(saved);
-        routeToJudge(saved);
+        routeToUser(saved);
 
-        // Link back to parent
-        parent.setApplicationId(saved.getId());
-        parentRepo.save(parent);
+        // Link back to the slot
+        slot.setApplicationId(saved.getId());
+        parentAppRepo.save(slot);
 
         Map<String, Object> result = new HashMap<>();
         result.put("applicationNumber", saved.getApplicationNumber());
@@ -128,7 +161,6 @@ public class ApplicationService {
         return result;
     }
 
-    /** Parent changes their password */
     @Transactional("appsTransactionManager")
     public void changePassword(Long parentId, String newHash) {
         Parent parent = parentRepo.findById(parentId)
@@ -138,7 +170,7 @@ public class ApplicationService {
         parentRepo.save(parent);
     }
 
-    // ── Private helpers ───────────────────────────────────────
+    // ── Private helpers ───────────────────────────────────
 
     private void assignApplicationNumber(Application app) {
         long count = appRepo.countByCategory(app.getCategory());
@@ -146,36 +178,15 @@ public class ApplicationService {
         appRepo.save(app);
     }
 
-    private void routeToJudge(Application app) {
+    private void routeToUser(Application app) {
         try {
-            lk.school.admission.entity.ApplicationCategory cat =
-                lk.school.admission.entity.ApplicationCategory.valueOf(app.getCategory());
-            judgeRepo.findByCategory(cat).ifPresent(judge -> {
-                app.setAssignedJudgeId(judge.getId());
+            ApplicationCategory cat = ApplicationCategory.valueOf(app.getCategory());
+            userRepo.findByCategory(cat).ifPresent(user -> {
+                app.setAssignedUserId(user.getId());
                 app.setStatus("UNDER_REVIEW");
                 appRepo.save(app);
             });
-        } catch (IllegalArgumentException ignored) {
-            // category string doesn't match enum — leave unassigned
-        }
-    }
-
-    private Map<String, Object> appToMap(Application a) {
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("id",                   a.getId());
-        m.put("applicationNumber",    a.getApplicationNumber());
-        m.put("category",             a.getCategory());
-        m.put("status",               a.getStatus());
-        m.put("childNameEnglish",     a.getChildNameEnglish());
-        m.put("childNameSinhala",     a.getChildNameSinhala());
-        m.put("dateOfBirth",          a.getDateOfBirth() != null ? a.getDateOfBirth().toString() : null);
-        m.put("district",             a.getDistrict());
-        m.put("distanceFromSchoolKm", a.getDistanceFromSchoolKm());
-        m.put("totalScore",           a.getTotalScore());
-        m.put("rankInCategory",       a.getRankInCategory());
-        m.put("flagColor",            a.getFlagColor());
-        m.put("submittedAt",          a.getSubmittedAt() != null ? a.getSubmittedAt().toString() : null);
-        return m;
+        } catch (IllegalArgumentException ignored) {}
     }
 
     private String str(Map<String, Object> data, String key) {
@@ -187,10 +198,10 @@ public class ApplicationService {
         final double R = 6371.0;
         double dLat = Math.toRadians(schoolLat - lat1);
         double dLon = Math.toRadians(schoolLon - lon1);
-        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
-                 + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(schoolLat))
-                 * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1000.0) / 1000.0;
+        double a = Math.sin(dLat/2)*Math.sin(dLat/2)
+                 + Math.cos(Math.toRadians(lat1))*Math.cos(Math.toRadians(schoolLat))
+                 * Math.sin(dLon/2)*Math.sin(dLon/2);
+        return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)) * 1000.0) / 1000.0;
     }
 
     private double[] extractCoordinates(String link) {

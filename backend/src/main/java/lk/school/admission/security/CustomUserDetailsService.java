@@ -3,14 +3,17 @@
 //  UPDATED: ApplicantRepository → ParentRepository
 //           "Applicant" references → "Parent"
 // ================================================================
+// ================================================================
+//  FILE: src/main/java/lk/school/admission/security/CustomUserDetailsService.java
+// ================================================================
 package lk.school.admission.security;
 
-import lk.school.admission.entity.Judge;
 import lk.school.admission.entity.Parent;
+import lk.school.admission.entity.User;
 import lk.school.admission.entity.SystemUser;
-import lk.school.admission.repository.JudgeRepository;
-import lk.school.admission.repository.ParentRepository;
-import lk.school.admission.repository.SystemUserRepository;
+import lk.school.admission.repository.apps.ParentRepository;
+import lk.school.admission.repository.system.UserRepository;
+import lk.school.admission.repository.system.SystemUserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.*;
@@ -18,49 +21,56 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/**
+ * Looks up users across both databases:
+ *  1. SystemUser  (Admin / DC)  — login key = email
+ *  2. User                      — login key = username (e.g. user_co)
+ *  3. Parent                    — login key = phone number
+ */
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
 
-    @Autowired private ParentRepository     parentRepo;     // UPDATED
-    @Autowired private JudgeRepository      judgeRepo;
     @Autowired private SystemUserRepository systemUserRepo;
+    @Autowired private UserRepository       userRepo;
+    @Autowired private ParentRepository     parentRepo;
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
 
-        // ── Step 1: Check SystemUser table (Admin, Document Controller) ──
+        // 1. Admin / DC — identified by email
         var sysUser = systemUserRepo.findByEmail(username);
         if (sysUser.isPresent()) {
             SystemUser u = sysUser.get();
-            return new User(
+            // Fixed: use Spring Security's org.springframework.security.core.userdetails.User
+            // not lk.school.admission.entity.User
+            return new org.springframework.security.core.userdetails.User(
                 u.getEmail(),
                 u.getPasswordHash(),
-                List.of(new SimpleGrantedAuthority("ROLE_" + u.getRole().name()))
-            );
+                List.of(new SimpleGrantedAuthority("ROLE_" + u.getRole().name())));
         }
 
-        // ── Step 2: Check Judge table ─────────────────────────────────────
-        var judge = judgeRepo.findByUsername(username);
-        if (judge.isPresent()) {
-            Judge j = judge.get();
-            return new User(
-                j.getUsername(),
-                j.getPasswordHash(),
-                List.of(new SimpleGrantedAuthority("ROLE_JUDGE"))
-            );
+        // 2. User — identified by username
+        var userOpt = userRepo.findByUsername(username);
+        if (userOpt.isPresent()) {
+            User u = userOpt.get();   // Fixed: was using undefined variable j
+            return new org.springframework.security.core.userdetails.User(
+                u.getUsername(),
+                u.getPasswordHash(),
+                List.of(new SimpleGrantedAuthority("ROLE_USER")));
         }
 
-        // ── Step 3: Check Parent table (UPDATED from Applicant) ──────────
-        var parent = parentRepo.findByEmail(username);
+        // 3. Parent — identified by phone number
+        var parent = parentRepo.findByPhone(username);
         if (parent.isPresent()) {
             Parent p = parent.get();
-            return new User(
-                p.getEmail(),
+            if (!p.isActive())
+                throw new UsernameNotFoundException("Account is deactivated: " + username);
+            return new org.springframework.security.core.userdetails.User(
+                p.getPhone(),
                 p.getPasswordHash(),
-                List.of(new SimpleGrantedAuthority("ROLE_PARENT"))  // UPDATED
-            );
+                List.of(new SimpleGrantedAuthority("ROLE_PARENT")));
         }
 
-        throw new UsernameNotFoundException("No user found with username: " + username);
+        throw new UsernameNotFoundException("No user found: " + username);
     }
 }
