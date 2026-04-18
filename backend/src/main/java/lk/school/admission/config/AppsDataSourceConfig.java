@@ -16,12 +16,12 @@ import java.util.Map;
 
 /**
  * Secondary DataSource → admission_apps database.
- * Manages: Parent, Application
- * Repositories: lk.school.admission.repository.apps
+ * Stores: Parent, Application (form data only, written by parents).
+ * Repositories live in: lk.school.admission.repository.apps
  */
 @Configuration
 @EnableJpaRepositories(
-    basePackages            = "lk.school.admission.repository.apps",
+    basePackages           = "lk.school.admission.repository.apps",
     entityManagerFactoryRef = "appsEntityManagerFactory",
     transactionManagerRef   = "appsTransactionManager"
 )
@@ -49,7 +49,9 @@ public class AppsDataSourceConfig {
             .persistenceUnit("apps")
             .properties(Map.of(
                 "hibernate.hbm2ddl.auto", "update",
-                "hibernate.dialect",      "org.hibernate.dialect.MySQLDialect"
+                "hibernate.dialect",      "org.hibernate.dialect.MySQLDialect",
+                "hibernate.show_sql",     "false",
+                "hibernate.format_sql",   "false"
             ))
             .build();
     }
