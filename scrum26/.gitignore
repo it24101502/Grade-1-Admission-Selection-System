@@ -1,0 +1,19 @@
+node_modules/
+src/client/node_modules/
+src/client/build/
+
+.env
+src/client/.env
+
+*.log
+.DS_Store
+Thumbs.db
+
+coverage/
+
+# IntelliJ — keep runConfigurations, ignore workspace-local files
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/usage.statistics.xml
+.idea/dictionaries
+.idea/shelf

@@ -1,0 +1,14 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Start React Frontend" type="js.build_tools.npm" factoryName="npm">
+    <package-json value="$PROJECT_DIR$/src/client/package.json"/>
+    <command value="run"/>
+    <scripts>
+      <script value="start"/>
+    </scripts>
+    <node-interpreter value="node"/>
+    <envs>
+      <env name="BROWSER" value="none"/>
+    </envs>
+    <method v="2"/>
+  </configuration>
+</component>
