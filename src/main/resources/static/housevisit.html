@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>House Visit Commentary</title>
+</head>
+
+<body>
+
+<h2>Enter House Visit Commentary</h2>
+
+<label>Application ID:</label>
+<input id="applicationId"><br><br>
+
+<label>House Condition:</label>
+<input id="houseCondition"><br><br>
+
+<label>Neighbourhood:</label>
+<input id="neighbourhood"><br><br>
+
+<label>Remarks:</label>
+<input id="remarks"><br><br>
+
+<button onclick="submitComment()">Submit</button>
+
+<script>
+
+function submitComment() {
+
+fetch("/housevisit", {
+
+method: "POST",
+
+headers: {
+"Content-Type": "application/json"
+},
+
+body: JSON.stringify({
+
+applicationId:
+document.getElementById("applicationId").value,
+
+houseCondition:
+document.getElementById("houseCondition").value,
+
+neighbourhood:
+document.getElementById("neighbourhood").value,
+
+remarks:
+document.getElementById("remarks").value
+
+})
+
+})
+
+.then(response => response.text())
+.then(data => alert(data))
+
+}
+
+</script>
+
+</body>
+</html>

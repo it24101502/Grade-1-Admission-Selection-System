@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Select Applicant Location</title>
+
+<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY"></script>
+
+<script>
+
+let marker;
+let map;
+
+function initMap() {
+
+const school = { lat: 6.9069, lng: 79.8607 };
+
+map = new google.maps.Map(document.getElementById("map"), {
+zoom: 12,
+center: school
+});
+
+google.maps.event.addListener(map, "click", function(event) {
+
+placeMarker(event.latLng);
+
+});
+
+}
+
+function placeMarker(location) {
+
+if(marker){
+marker.setPosition(location);
+}else{
+marker = new google.maps.Marker({
+position: location,
+map: map
+});
+}
+
+document.getElementById("lat").value = location.lat();
+document.getElementById("lon").value = location.lng();
+
+}
+
+function calculateDistance(){
+
+let lat = document.getElementById("lat").value;
+let lon = document.getElementById("lon").value;
+
+fetch(`/distance?latitude=${lat}&longitude=${lon}`)
+.then(res => res.text())
+.then(data => {
+
+document.getElementById("result").innerHTML =
+"Distance from school: " + data + " KM";
+
+});
+
+}
+
+</script>
+
+</head>
+
+<body onload="initMap()">
+
+<h2>Select Applicant House Location</h2>
+
+<div id="map" style="height:500px;width:700px"></div>
+
+<br>
+
+Latitude:
+<input type="text" id="lat">
+
+Longitude:
+<input type="text" id="lon">
+
+<br><br>
+
+<button onclick="calculateDistance()">Calculate Distance</button>
+
+<h3 id="result"></h3>
+
+</body>
+</html>
