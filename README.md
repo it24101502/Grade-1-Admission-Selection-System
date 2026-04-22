@@ -1,6 +1,6 @@
-# RBAC Login Portal — Monorepo
+# RBAC Login Portal
 
-> **University Assignment — Epic 6: Role-Based Access Control**
+> **SE — Epic 6: Role-Based Access Control**
 > Built from Jira Scrum stories: SCRUM-25 through SCRUM-30
 
 ---
