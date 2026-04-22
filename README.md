@@ -1,6 +1,6 @@
 # RBAC Login Portal
 
-> **SE — Epic 6: Role-Based Access Control**
+> **SE Sprint 4 — Epic 6: Role-Based Access Control**
 > Built from Jira Scrum stories: SCRUM-25 through SCRUM-30
 
 ---
