@@ -1,0 +1,22 @@
+node_modules/
+frontend/node_modules/
+target/
+*.class
+.env
+build/
+nano .gitignore
+# macOS
+.DS_Store
+
+# IDE (IntelliJ / VS Code)
+.idea/
+
+# Node & build
+node_modules/
+frontend/node_modules/
+target/
+*.class
+build/
+
+# Environment
+.env
