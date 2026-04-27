@@ -1,7 +1,8 @@
 // ================================================================
 //  FILE: src/main/java/lk/school/admission/service/ApplicationService.java
-//  UPDATED: submitApplication now takes a slotId and links the
-//  completed application back to the CategorySlot.
+//  UPDATED: All slot and submission logic is now child-aware.
+//  getSlotsForParent  → grouped by child
+//  submitApplication  → requires childId + category
 // ================================================================
 package lk.school.admission.service;
 
@@ -9,9 +10,11 @@ import lk.school.admission.entity.Application;
 import lk.school.admission.entity.ApplicationCategory;
 import lk.school.admission.entity.Parent;
 import lk.school.admission.entity.ParentApplication;
+import lk.school.admission.entity.ParentChild;
 import lk.school.admission.repository.apps.ApplicationRepository;
-import lk.school.admission.repository.apps.ParentApplicationRepository;
-import lk.school.admission.repository.apps.ParentRepository;
+import lk.school.admission.repository.system.ParentApplicationRepository;
+import lk.school.admission.repository.system.ParentChildRepository;
+import lk.school.admission.repository.system.ParentRepository;
 import lk.school.admission.repository.system.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,6 +31,7 @@ public class ApplicationService {
 
     @Autowired private ApplicationRepository       appRepo;
     @Autowired private ParentRepository            parentRepo;
+    @Autowired private ParentChildRepository       parentChildRepo;
     @Autowired private ParentApplicationRepository parentAppRepo;
     @Autowired private UserRepository              userRepo;
 
@@ -35,31 +39,55 @@ public class ApplicationService {
     @Value("${school.longitude}") private double schoolLon;
 
     /**
-     * Returns all category slots assigned to this parent — one entry per category.
-     * This drives the parent dashboard list.
+     * Returns all slots for this parent, grouped by child.
+     * Used to drive the parent dashboard.
+     *
+     * Response structure:
+     * [
+     *   {
+     *     childId: 1,
+     *     childName: "Liona Perera",
+     *     slots: [
+     *       { slotId, category, filled, applicationNumber?, status?, ... }
+     *     ]
+     *   },
+     *   ...
+     * ]
      */
     @Transactional(value = "appsTransactionManager", readOnly = true)
     public List<Map<String, Object>> getSlotsForParent(Long parentId) {
-        Parent parent = parentRepo.findById(parentId)
+        parentRepo.findById(parentId)
             .orElseThrow(() -> new RuntimeException("Parent not found"));
 
-        return parentAppRepo.findByParentId(parentId).stream().map(slot -> {
-            Map<String, Object> m = new LinkedHashMap<>();
-            m.put("slotId",    slot.getId());
-            m.put("category",  slot.getCategory());
-            m.put("childName", parent.getChildName());
-            m.put("filled",    slot.getApplicationId() != null);
+        List<ParentChild> children = parentChildRepo.findByParentId(parentId);
 
-            if (slot.getApplicationId() != null) {
-                appRepo.findById(slot.getApplicationId()).ifPresent(app -> {
-                    m.put("applicationNumber", app.getApplicationNumber());
-                    m.put("status",            app.getStatus());
-                    m.put("totalScore",        app.getTotalScore());
-                    m.put("flagColor",         app.getFlagColor());
-                    m.put("childNameEnglish",  app.getChildNameEnglish());
-                });
-            }
-            return m;
+        return children.stream().map(child -> {
+            List<ParentApplication> slots =
+                parentAppRepo.findByParentIdAndChildId(parentId, child.getId());
+
+            List<Map<String, Object>> slotList = slots.stream().map(slot -> {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("slotId",    slot.getId());
+                m.put("category",  slot.getCategory());
+                m.put("filled",    slot.getApplicationId() != null);
+
+                if (slot.getApplicationId() != null) {
+                    appRepo.findById(slot.getApplicationId()).ifPresent(app -> {
+                        m.put("applicationNumber", app.getApplicationNumber());
+                        m.put("status",            app.getStatus());
+                        m.put("totalScore",        app.getTotalScore());
+                        m.put("flagColor",         app.getFlagColor());
+                        m.put("childNameEnglish",  app.getChildNameEnglish());
+                    });
+                }
+                return m;
+            }).collect(Collectors.toList());
+
+            Map<String, Object> childMap = new LinkedHashMap<>();
+            childMap.put("childId",   child.getId());
+            childMap.put("childName", child.getChildName());
+            childMap.put("slots",     slotList);
+            return childMap;
         }).collect(Collectors.toList());
     }
 
@@ -72,31 +100,41 @@ public class ApplicationService {
             .orElseThrow(() -> new RuntimeException("Parent not found"));
 
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("childName",   parent.getChildName());
-        result.put("phone",       parent.getPhone());
-        result.put("slots",       getSlotsForParent(parentId));
+        result.put("phone",    parent.getPhone());
+        result.put("children", getSlotsForParent(parentId));
         return result;
     }
 
     /**
-     * Parent submits application for a specific category.
-     * The category must be one assigned by the DC.
-     * Each category can only be submitted once.
+     * Parent submits application for a specific child + category slot.
+     *
+     * @param parentId  the logged-in parent's ID
+     * @param childId   which child this application is for
+     * @param category  the category slot (must be DC-assigned for this child)
+     * @param data      the form fields
      */
     @Transactional("appsTransactionManager")
-    public Map<String, Object> submitApplication(Long parentId, String category,
+    public Map<String, Object> submitApplication(Long parentId, Long childId,
+                                                  String category,
                                                   Map<String, Object> data) {
-        Parent parent = parentRepo.findById(parentId)
+        parentRepo.findById(parentId)
             .orElseThrow(() -> new RuntimeException("Parent account not found"));
 
+        ParentChild child = parentChildRepo.findById(childId)
+            .orElseThrow(() -> new RuntimeException("Child not found"));
+
+        if (!child.getParentId().equals(parentId))
+            throw new RuntimeException("This child does not belong to your account.");
+
         ParentApplication slot = parentAppRepo
-            .findByParentIdAndCategory(parentId, category.toUpperCase())
+            .findByParentIdAndChildIdAndCategory(parentId, childId, category.toUpperCase())
             .orElseThrow(() -> new RuntimeException(
-                "You are not assigned to apply in category: " + category));
+                "No " + category + " slot assigned for child \"" + child.getChildName() + "\""));
 
         if (slot.getApplicationId() != null)
             throw new RuntimeException(
-                "You have already submitted an application for category " + category);
+                "Application already submitted for \"" + child.getChildName() +
+                "\" in category " + category);
 
         String locationLink = (String) data.get("locationLink");
         double[] coords     = extractCoordinates(locationLink);
@@ -148,13 +186,13 @@ public class ApplicationService {
         assignApplicationNumber(saved);
         routeToUser(saved);
 
-        // Link back to the slot
         slot.setApplicationId(saved.getId());
         parentAppRepo.save(slot);
 
         Map<String, Object> result = new HashMap<>();
         result.put("applicationNumber", saved.getApplicationNumber());
         result.put("category",          saved.getCategory());
+        result.put("childName",         child.getChildName());
         result.put("status",            saved.getStatus());
         result.put("distanceKm",        saved.getDistanceFromSchoolKm());
         result.put("message",           "Application submitted successfully!");
@@ -173,7 +211,6 @@ public class ApplicationService {
     // ── Private helpers ───────────────────────────────────
 
     private void assignApplicationNumber(Application app) {
-        long count = appRepo.countByCategory(app.getCategory());
         app.setApplicationNumber(app.getCategory() + "-" + String.format("%04d", app.getId()));
         appRepo.save(app);
     }
@@ -210,7 +247,8 @@ public class ApplicationService {
             var p = java.util.regex.Pattern.compile("[/@](-?\\d+\\.\\d+),(-?\\d+\\.\\d+)");
             var m = p.matcher(link);
             if (m.find())
-                return new double[]{Double.parseDouble(m.group(1)), Double.parseDouble(m.group(2))};
+                return new double[]{Double.parseDouble(m.group(1)),
+                                    Double.parseDouble(m.group(2))};
         } catch (Exception ignored) {}
         return null;
     }

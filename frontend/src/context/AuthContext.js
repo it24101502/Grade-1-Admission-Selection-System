@@ -10,10 +10,10 @@ const AuthContext = createContext(null);
 
 // Default credentials per role — match what DataSeeder creates
 const DEFAULT_CREDENTIALS = {
-  PARENT:              { username: 'test@parent.lk',  password: '199012345678' },
-  DOCUMENT_CONTROLLER: { username: 'dc@school.lk',    password: 'DocCtrl@2025' },
-  JUDGE:               { username: 'judge_co',         password: 'Judge_CO@2025' },
-  ADMIN:               { username: 'admin@school.lk',  password: 'Admin@2025'   },
+  PARENT:              { username: '0777301393', password: '198712341234' }, // use a real seeded parent phone/NIC
+  DOCUMENT_CONTROLLER: { username: 'dc@school.lk',   password: 'DocCtrl@2025' },
+  JUDGE:               { username: 'user_co',          password: 'User_CO@2025' },
+  ADMIN:               { username: 'admin@school.lk',  password: 'Admin@2025'  },
 };
 
 function normalizeUserPayload(data) {

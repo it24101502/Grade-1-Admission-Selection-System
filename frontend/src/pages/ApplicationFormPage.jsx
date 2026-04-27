@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useLocation } from "react-router-dom";
 
 // ─────────────────────────────────────────────────────────────
 //  CONSTANTS
@@ -16,7 +17,7 @@ const CATEGORIES = [
   { code: "SIS", label: "SIS — Siblings" },
   { code: "CO",  label: "CO — Chief Occupant" },
   { code: "TR",  label: "TR — Transfer" },
-  { code: "ED",  label: "ED — Educational" },
+  { code: "EDU", label: "EDU — Educational" },
   { code: "AB",  label: "AB — Abroad / Other" },
 ];
 
@@ -285,6 +286,12 @@ function ReviewRow({ label, value, t }) {
 //  MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────
 export default function ApplicationFormPage() {
+  const location = useLocation();
+  // Passed from ParentDashboard when clicking "Fill application"
+  const slotState = location.state || {};
+  const assignedCategory = slotState.category || "";
+  const assignedChildName = slotState.childName || "";
+
   const [dark, setDark] = useState(false);
   const t = dark ? DARK : LIGHT;
 
@@ -297,13 +304,13 @@ export default function ApplicationFormPage() {
   const [appNumber, setAppNumber] = useState("");
 
   const [child, setChild] = useState({
-    nameEn:"", nameSi:"", dob:"", certNo:"", certDivision:"", certDistrict:"",
+    nameEn: assignedChildName, nameSi:"", dob:"", certNo:"", certDivision:"", certDistrict:"",
     birthPlace:"", country:"LK",
   });
   const [applicant, setApplicant] = useState({
     relationship:"", nic:"", nameEn:"", nameSi:"", contact:"", phone:"",
     addrLine1:"", addrLine2:"", addrLine3:"", street:"", town:"", district:"",
-    mapsLink:"", category:"",
+    mapsLink:"", category: assignedCategory,
   });
   const [mother, setMother] = useState({ name:"", contact:"", nic:"", occupation:"", workplace:"", email:"" });
   const [father, setFather] = useState({ name:"", contact:"", nic:"", occupation:"", workplace:"", email:"" });
@@ -533,7 +540,7 @@ export default function ApplicationFormPage() {
               </div>
               <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
                 {CATEGORIES.map(cat => {
-                  const isAssigned = cat.code === "SIS";
+                  const isAssigned = cat.code === assignedCategory;
                   return (
                     <div key={cat.code} style={{
                       padding:"9px 18px",
@@ -554,7 +561,7 @@ export default function ApplicationFormPage() {
                 })}
               </div>
               <div style={{ marginTop:14, padding:"10px 14px", background: dark ? "rgba(196,149,42,0.1)" : "rgba(196,149,42,0.07)", border:`1px solid ${dark ? "rgba(196,149,42,0.3)" : "rgba(196,149,42,0.25)"}`, borderRadius:8, fontSize:12, color:t.groupTitle, fontWeight:500 }}>
-                Assigned category: <strong>SIS — Siblings</strong>
+                Assigned category: <strong>{CATEGORIES.find(c => c.code === assignedCategory)?.label || assignedCategory}</strong>
               </div>
             </FieldGroup>
 

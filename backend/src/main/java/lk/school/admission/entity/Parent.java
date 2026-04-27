@@ -1,11 +1,13 @@
 // ================================================================
 //  FILE: src/main/java/lk/school/admission/entity/Parent.java
-//  UPDATED: Renamed from Applicant → Parent
-//           Table name changed: applicants → parents
+//  UPDATED: Removed childName — children are now tracked in
+//           the ParentChild table (one row per child).
 //
 //  Represents a PARENT/GUARDIAN user account.
 //  Created by the Document Controller.
 //  Login: phone number = username, NIC = initial password.
+//  One parent account can have multiple children, and each child
+//  can have multiple category slots.
 // ================================================================
 package lk.school.admission.entity;
 
@@ -13,20 +15,13 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
 
-/**
- * Parent login account created by the Document Controller.
- * Stored in admission_apps database.
- *
- * Username = phone number
- * Password = NIC number (BCrypt hashed), parent changes on first login.
- *
- * A parent can apply in MULTIPLE categories.
- * Each category is tracked in the ParentApplication table (one row per category).
- * The DC calls createOrUpdateParent() with phone+NIC+childName+category each time.
- * If the phone+NIC match an existing parent, a new category row is added.
- */
 @Entity
-@Table(name = "parents")
+@Table(name = "parents",
+    uniqueConstraints = @UniqueConstraint(
+        columnNames = {"phone", "nic"},
+        name = "uk_parent_phone_nic"
+    )
+)
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Parent {
 
@@ -42,13 +37,9 @@ public class Parent {
     @Column(nullable = false, unique = true, length = 20)
     private String nic;
 
-    /** BCrypt(NIC) initially */
+    /** BCrypt(NIC) initially; parent changes on first login */
     @Column(nullable = false)
     private String passwordHash;
-
-    /** Child's name entered by DC */
-    @Column(nullable = false, length = 150)
-    private String childName;
 
     @Builder.Default
     @Column(nullable = false)

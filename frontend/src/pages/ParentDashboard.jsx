@@ -16,8 +16,9 @@ import { parentApi } from '../services/api';
 // Category display names
 const CAT_LABELS = {
   CO:  'Chief Occupant',
-  SIS: 'Sister Category',
-  OG:  'Old Girl',
+  SIS: 'Siblings',
+  OG:  'Old Girls / Old Boys',
+  EDU: 'Educational',
   ED:  'Educational',
   TR:  'Transfer',
   AB:  'Abroad / Other',
@@ -279,7 +280,7 @@ function ApplicationsList({ slots, loading, expanded, setExpanded, onRefresh, na
     );
   }
 
-  if (slots.length === 0) {
+  if (!slots || slots.length === 0) {
     return (
       <div style={{
         background: 'white', borderRadius: '16px',
@@ -297,27 +298,27 @@ function ApplicationsList({ slots, loading, expanded, setExpanded, onRefresh, na
     );
   }
 
-  // Group slots by child name (from filled application) or show as single list
-  // For now: show each slot as a collapsible row matching image 3
+  // API returns: [{ childId, childName, slots: [{ slotId, category, filled, ... }] }]
+  // One accordion per child, showing child's name. Inside: one row per category slot.
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-      {slots.map((slot, idx) => (
-        <SlotAccordion
-          key={slot.slotId}
-          slot={slot}
-          isExpanded={expanded === slot.slotId}
-          onToggle={() => setExpanded(expanded === slot.slotId ? null : slot.slotId)}
-          onFillApplication={() => navigate(`/apply/${slot.slotId}`)}
+      {slots.map(child => (
+        <ChildAccordion
+          key={child.childId}
+          child={child}
+          isExpanded={expanded === child.childId}
+          onToggle={() => setExpanded(expanded === child.childId ? null : child.childId)}
+          navigate={navigate}
         />
       ))}
     </div>
   );
 }
 
-// ── Slot Accordion Row ────────────────────────────────────────
-function SlotAccordion({ slot, isExpanded, onToggle, onFillApplication }) {
-  const label = slot.displayLabel || CAT_LABELS[slot.category] || slot.category;
-
+// ── Child Accordion Row ───────────────────────────────────────
+// One accordion per child. Header shows the child's real name.
+// Expanded body shows one row per category slot.
+function ChildAccordion({ child, isExpanded, onToggle, navigate }) {
   return (
     <div style={{
       background:   'white',
@@ -325,8 +326,7 @@ function SlotAccordion({ slot, isExpanded, onToggle, onFillApplication }) {
       overflow:     'hidden',
       boxShadow:    '0 2px 10px rgba(100,120,200,0.08)',
     }}>
-
-      {/* Accordion header */}
+      {/* Accordion header — shows child's real name */}
       <button
         onClick={onToggle}
         style={{
@@ -345,9 +345,25 @@ function SlotAccordion({ slot, isExpanded, onToggle, onFillApplication }) {
           transition: 'all 0.2s',
         }}
       >
-        <span style={{ fontSize: '1rem', fontWeight: 500, color: '#2a3a6a' }}>
-          Name of the child
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Child avatar initial */}
+          <div style={{
+            width: '32px', height: '32px', borderRadius: '8px',
+            background: 'linear-gradient(135deg, #8090d0, #6070b0)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'white', fontWeight: 700, fontSize: '0.85rem', flexShrink: 0,
+          }}>
+            {child.childName?.charAt(0) || '?'}
+          </div>
+          <div style={{ textAlign: 'left' }}>
+            <span style={{ fontSize: '1rem', fontWeight: 600, color: '#2a3a6a', display: 'block' }}>
+              {child.childName}
+            </span>
+            <span style={{ fontSize: '0.75rem', color: '#8090b0' }}>
+              {child.slots?.length || 0} application slot{child.slots?.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+        </div>
         <svg
           width="16" height="16" viewBox="0 0 24 24" fill="none"
           stroke="#6070a0" strokeWidth="2.5" strokeLinecap="round"
@@ -360,63 +376,92 @@ function SlotAccordion({ slot, isExpanded, onToggle, onFillApplication }) {
         </svg>
       </button>
 
-      {/* Expanded: category rows */}
+      {/* Expanded: one row per category slot */}
       {isExpanded && (
-        <div style={{ padding: '0' }}>
-          <div style={{
-            display:    'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding:    '16px 24px',
-            background: 'linear-gradient(135deg, #d8deef, #cdd5ea)',
-            borderTop:  '1px solid rgba(100,130,200,0.1)',
-          }}>
-            <span style={{ fontSize: '0.95rem', fontWeight: 500, color: '#2a3a6a' }}>
-              {label}
-            </span>
-
-            {slot.filled ? (
-              /* Already submitted */
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{
-                  fontSize: '0.75rem', color: '#2e7d32',
-                  background: 'rgba(46,125,50,0.1)',
-                  border: '1px solid rgba(46,125,50,0.3)',
-                  borderRadius: '20px', padding: '3px 10px', fontWeight: 600,
-                }}>
-                  ✅ Submitted — {slot.applicationNumber}
-                </span>
-              </div>
-            ) : (
-              /* Not yet filled */
-              <button
-                onClick={onFillApplication}
+        <div>
+          {child.slots?.map((slot, idx) => {
+            const catLabel = CAT_LABELS[slot.category] || slot.category;
+            return (
+              <div
+                key={slot.slotId}
                 style={{
-                  background:   'linear-gradient(135deg, #e8ecf8, #d8def5)',
-                  border:       '1px solid rgba(100,130,200,0.3)',
-                  borderRadius: '20px',
-                  padding:      '6px 18px',
-                  fontSize:     '0.8rem',
-                  fontWeight:   600,
-                  color:        '#3050a0',
-                  cursor:       'pointer',
-                  fontFamily:   "'DM Sans', sans-serif",
-                  transition:   'all 0.2s',
-                  whiteSpace:   'nowrap',
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.background = 'linear-gradient(135deg, #d0d8f5, #c0ccf0)';
-                  e.currentTarget.style.transform  = 'translateY(-1px)';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.background = 'linear-gradient(135deg, #e8ecf8, #d8def5)';
-                  e.currentTarget.style.transform  = 'translateY(0)';
+                  display:    'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding:    '14px 24px',
+                  background: idx % 2 === 0
+                    ? 'linear-gradient(135deg, #d8deef, #cdd5ea)'
+                    : 'linear-gradient(135deg, #dde3f2, #d2daed)',
+                  borderTop:  '1px solid rgba(100,130,200,0.1)',
                 }}
               >
-                Fill application
-              </button>
-            )}
-          </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {/* Category badge */}
+                  <span style={{
+                    background: '#4a5fa0', color: 'white',
+                    borderRadius: '6px', padding: '2px 8px',
+                    fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.5px',
+                  }}>
+                    {slot.category}
+                  </span>
+                  <span style={{ fontSize: '0.95rem', fontWeight: 500, color: '#2a3a6a' }}>
+                    {catLabel}
+                  </span>
+                </div>
+
+                {slot.filled ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{
+                      fontSize: '0.75rem', color: '#2e7d32',
+                      background: 'rgba(46,125,50,0.1)',
+                      border: '1px solid rgba(46,125,50,0.3)',
+                      borderRadius: '20px', padding: '3px 10px', fontWeight: 600,
+                    }}>
+                      ✅ Submitted — {slot.applicationNumber}
+                    </span>
+                    {slot.status && (
+                      <span style={{
+                        fontSize: '0.72rem', color: '#5060a0',
+                        background: 'rgba(80,96,160,0.1)',
+                        borderRadius: '20px', padding: '2px 8px',
+                      }}>
+                        {slot.status}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => navigate(`/apply/${slot.slotId}`, {
+                      state: { childId: child.childId, childName: child.childName, category: slot.category }
+                    })}
+                    style={{
+                      background:   'linear-gradient(135deg, #e8ecf8, #d8def5)',
+                      border:       '1px solid rgba(100,130,200,0.3)',
+                      borderRadius: '20px',
+                      padding:      '6px 18px',
+                      fontSize:     '0.8rem',
+                      fontWeight:   600,
+                      color:        '#3050a0',
+                      cursor:       'pointer',
+                      fontFamily:   "'DM Sans', sans-serif",
+                      transition:   'all 0.2s',
+                      whiteSpace:   'nowrap',
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = 'linear-gradient(135deg, #d0d8f5, #c0ccf0)';
+                      e.currentTarget.style.transform  = 'translateY(-1px)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = 'linear-gradient(135deg, #e8ecf8, #d8def5)';
+                      e.currentTarget.style.transform  = 'translateY(0)';
+                    }}
+                  >
+                    Fill application
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

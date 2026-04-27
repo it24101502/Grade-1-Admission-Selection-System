@@ -15,7 +15,8 @@ import AdminDashboard         from './pages/AdminDashboard';
 const ROLE_ROUTES = {
   PARENT:              '/dashboard',
   DOCUMENT_CONTROLLER: '/dc/dashboard',
-  JUDGE:               '/judge/dashboard',
+  USER:                '/judge/dashboard',   // backend returns "USER" for judges
+  JUDGE:               '/judge/dashboard',   // kept as alias in case it changes
   ADMIN:               '/admin/dashboard',
 };
 
@@ -56,10 +57,10 @@ export default function App() {
           <Route path="/apply"         element={<ProtectedRoute allowedRoles={['PARENT']}><ApplicationFormPage /></ProtectedRoute>} />
 
           {/* Document Controller */}
-          <Route path="/dc/dashboard"    element={<ProtectedRoute allowedRoles={['DOCUMENT_CONTROLLER']}><DocControllerDashboard /></ProtectedRoute>} />
+          <Route path="/dc/dashboard" element={<ProtectedRoute allowedRoles={['DOCUMENT_CONTROLLER']}><DocControllerDashboard /></ProtectedRoute>} />
 
-          {/* Judge */}
-          <Route path="/judge/dashboard" element={<ProtectedRoute allowedRoles={['JUDGE']}><JudgeDashboard /></ProtectedRoute>} />
+          {/* Judge — backend role is "USER", keep JUDGE as alias */}
+          <Route path="/judge/dashboard" element={<ProtectedRoute allowedRoles={['USER', 'JUDGE']}><JudgeDashboard /></ProtectedRoute>} />
 
           {/* Admin */}
           <Route path="/admin/dashboard" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminDashboard /></ProtectedRoute>} />

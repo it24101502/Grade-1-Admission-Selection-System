@@ -8,10 +8,13 @@ package lk.school.admission;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.boot.autoconfigure.domain.EntityScan;
 
 @SpringBootApplication
+@EntityScan(basePackages = "lk.school.admission.entity")
 public class Grade1AdmissionApplication {
-
+    
     public static void main(String[] args) {
         SpringApplication.run(Grade1AdmissionApplication.class, args);
         System.out.println("\n========================================");

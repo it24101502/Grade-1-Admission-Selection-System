@@ -11,7 +11,7 @@ package lk.school.admission.security;
 import lk.school.admission.entity.Parent;
 import lk.school.admission.entity.User;
 import lk.school.admission.entity.SystemUser;
-import lk.school.admission.repository.apps.ParentRepository;
+import lk.school.admission.repository.system.ParentRepository;
 import lk.school.admission.repository.system.UserRepository;
 import lk.school.admission.repository.system.SystemUserRepository;
 import org.springframework.beans.factory.annotation.Autowired;

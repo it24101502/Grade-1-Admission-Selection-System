@@ -1,6 +1,5 @@
 // ================================================================
 //  FILE: src/main/java/lk/school/admission/controller/AdminController.java
-//  Base path: /api/admin/  (ADMIN role only)
 // ================================================================
 package lk.school.admission.controller;
 
@@ -10,20 +9,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
-/**
- * All admin-facing endpoints.
- *
- *   GET  /api/admin/stats                        → dashboard summary
- *   GET  /api/admin/applications                 → all applications (filter by category/status)
- *   GET  /api/admin/ranked/{category}            → ranked list for one category
- *   GET  /api/admin/flagged                      → all flagged applications
- *   GET  /api/admin/users                       → judge progress summary
- *   POST /api/admin/publish-results              → select top N per category
- *   PUT  /api/admin/applications/{id}/status     → manually override status
- *   PUT  /api/admin/applications/{id}/flag       → set GREEN / YELLOW / RED flag
- */
 @RestController
 @RequestMapping("/api/admin")
 @PreAuthorize("hasRole('ADMIN')")
@@ -31,6 +19,8 @@ import java.util.Map;
 public class AdminController {
 
     @Autowired private AdminService adminService;
+
+    // ── Dashboard & Applications ──────────────────────────────
 
     @GetMapping("/stats")
     public ResponseEntity<?> getStats() {
@@ -64,42 +54,74 @@ public class AdminController {
         catch (Exception e) { return ResponseEntity.badRequest().body(Map.of("error", e.getMessage())); }
     }
 
-    /**
-     * POST /api/admin/publish-results
-     * Body: { "CO": 10, "SIS": 5, "OG": 3, "TR": 2, "EDU": 4, "AB": 1 }
-     */
     @PostMapping("/publish-results")
     public ResponseEntity<?> publishResults(@RequestBody Map<String, Integer> selections) {
         try { return ResponseEntity.ok(adminService.publishResults(selections)); }
         catch (Exception e) { return ResponseEntity.badRequest().body(Map.of("error", e.getMessage())); }
     }
 
-    /**
-     * PUT /api/admin/applications/{id}/status
-     * Body: { "status": "SELECTED" }
-     */
     @PutMapping("/applications/{id}/status")
-    public ResponseEntity<?> overrideStatus(
-            @PathVariable Long id, @RequestBody Map<String, String> body) {
+    public ResponseEntity<?> overrideStatus(@PathVariable Long id, @RequestBody Map<String, String> body) {
         try { return ResponseEntity.ok(adminService.overrideStatus(id, body.get("status"))); }
         catch (Exception e) { return ResponseEntity.badRequest().body(Map.of("error", e.getMessage())); }
     }
 
-    /**
-     * PUT /api/admin/applications/{id}/flag
-     * Body: { "flagColor": "RED", "reason": "Suspicious documents" }
-     * To clear: { "flagColor": null }
-     */
     @PutMapping("/applications/{id}/flag")
-    public ResponseEntity<?> setFlag(
-            @PathVariable Long id, @RequestBody Map<String, Object> body) {
+    public ResponseEntity<?> setFlag(@PathVariable Long id, @RequestBody Map<String, Object> body) {
         try {
-            Object fc        = body.get("flagColor");
+            Object fc = body.get("flagColor");
             String flagColor = fc != null ? fc.toString() : null;
-            String reason    = body.containsKey("reason") ? body.get("reason").toString() : null;
+            String reason = body.containsKey("reason") ? body.get("reason").toString() : null;
             return ResponseEntity.ok(adminService.setFlag(id, flagColor, reason));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        } catch (Exception e) { return ResponseEntity.badRequest().body(Map.of("error", e.getMessage())); }
+    }
+
+    // ── Marking Scheme Management (same as DC) ────────────────
+
+    /** GET /api/admin/schemes/summary */
+    @GetMapping("/schemes/summary")
+    public ResponseEntity<?> getSchemesSummary() {
+        try { return ResponseEntity.ok(adminService.getSchemesSummary()); }
+        catch (Exception e) { return ResponseEntity.badRequest().body(Map.of("error", e.getMessage())); }
+    }
+
+    /** GET /api/admin/schemes/category/{cat} */
+    @GetMapping("/schemes/category/{cat}")
+    public ResponseEntity<?> getActiveScheme(@PathVariable String cat) {
+        try { return ResponseEntity.ok(adminService.getActiveScheme(cat)); }
+        catch (Exception e) { return ResponseEntity.badRequest().body(Map.of("error", e.getMessage())); }
+    }
+
+    /**
+     * POST /api/admin/schemes
+     * Body: { "category": "CO", "title": "...", "criteria": [...] }
+     */
+    @PostMapping("/schemes")
+    public ResponseEntity<?> createScheme(@RequestBody Map<String, Object> body) {
+        try {
+            String category = body.get("category").toString();
+            String title    = body.get("title").toString();
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> criteria =
+                (List<Map<String, Object>>) body.getOrDefault("criteria", List.of());
+            return ResponseEntity.ok(adminService.createMarkingScheme(category, title, criteria));
+        } catch (Exception e) { return ResponseEntity.badRequest().body(Map.of("error", e.getMessage())); }
+    }
+
+    /**
+     * POST /api/admin/schemes/{id}/criteria
+     * Body: { "title": "...", "fieldType": "NUMBER_ONLY", "maxScore": 30 }
+     */
+    @PostMapping("/schemes/{id}/criteria")
+    public ResponseEntity<?> addCriterion(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        try { return ResponseEntity.ok(adminService.addCriterion(id, body)); }
+        catch (Exception e) { return ResponseEntity.badRequest().body(Map.of("error", e.getMessage())); }
+    }
+
+    /** DELETE /api/admin/criteria/{criterionId} */
+    @DeleteMapping("/criteria/{criterionId}")
+    public ResponseEntity<?> removeCriterion(@PathVariable Long criterionId) {
+        try { adminService.removeCriterion(criterionId); return ResponseEntity.ok(Map.of("message","Criterion removed")); }
+        catch (Exception e) { return ResponseEntity.badRequest().body(Map.of("error", e.getMessage())); }
     }
 }
